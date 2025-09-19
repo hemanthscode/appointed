@@ -1,0 +1,13 @@
+export { default as LandingPage } from './LandingPage';
+export { default as LoginPage } from './LoginPage';
+export { default as RegisterPage } from './RegisterPage';
+export { default as NotFoundPage } from './NotFoundPage';
+export { default as Dashboard } from './Dashboard';
+export { default as TeachersPage } from './TeachersPage';
+export { default as AppointmentPage } from './AppointmentPage';
+export { default as MessagesPage } from './MessagesPage';
+export { default as AppointmentsPage } from './AppointmentsPage';
+export { default as AdminPage } from './AdminPage';
+export { default as ProfilePage } from './ProfilePage';
+export { default as SchedulePage } from './SchedulePage';
+export { default as RequestsPage } from './RequestsPage';
