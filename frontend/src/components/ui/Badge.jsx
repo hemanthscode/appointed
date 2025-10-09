@@ -1,11 +1,11 @@
 import React from 'react';
 
-const Badge = ({ 
-  children, 
-  variant = 'info', 
+const Badge = ({
+  children,
+  variant = 'info',
   size = 'medium',
   className = '',
-  icon = null 
+  icon = null
 }) => {
   const getVariantClass = (variant) => {
     switch (variant) {

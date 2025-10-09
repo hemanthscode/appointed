@@ -3,12 +3,12 @@ import { motion } from 'framer-motion';
 import { Card } from '../ui';
 import { ANIMATIONS } from '../../data';
 
-const StatsCard = ({ 
-  label, 
-  value, 
-  icon: Icon, 
+const StatsCard = ({
+  label,
+  value,
+  icon: Icon,
   color = 'text-white',
-  index = 0 
+  index = 0
 }) => {
   return (
     <motion.div

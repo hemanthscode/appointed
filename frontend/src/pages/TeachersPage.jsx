@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Layout } from '../components/common';
 import { TeacherCard } from '../components/cards';
 import { Input } from '../components/ui';
-import { TEACHERS, DEPARTMENTS, ROUTES, ANIMATIONS } from '../data';
+import { useApi } from '../hooks';
+import { apiService } from '../services';
+import { ROUTES, ANIMATIONS, DEPARTMENTS } from '../data';
 import { filterBySearch } from '../utils';
 
 const TeachersPage = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+
+  const { data: teachers = [] } = useApi(() => apiService.users.getTeachers(), []);
 
   const bookAppointment = (teacherId) => {
     navigate(`${ROUTES.APPOINTMENTS}/${teacherId}`);
@@ -21,28 +25,21 @@ const TeachersPage = () => {
     navigate(`${ROUTES.MESSAGES}?teacher=${teacherId}`);
   };
 
-  // Filter teachers based on search and department
-  let filteredTeachers = TEACHERS;
-  
+  let filteredTeachers = teachers;
+
   if (searchTerm) {
     filteredTeachers = filterBySearch(filteredTeachers, searchTerm, ['name', 'subject', 'department']);
   }
-  
+
   if (selectedDepartment !== 'all') {
     filteredTeachers = filteredTeachers.filter(teacher => teacher.department === selectedDepartment);
   }
 
   return (
-    <Layout 
-      headerTitle="Search Teachers"
-      headerBackTo={ROUTES.DASHBOARD}
-    >
+    <Layout headerTitle="Search Teachers" headerBackTo={ROUTES.DASHBOARD}>
       <div className="p-6">
         {/* Search and Filter */}
-        <motion.div 
-          className="mb-8 space-y-4"
-          {...ANIMATIONS.fadeInUp}
-        >
+        <motion.div className="mb-8 space-y-4" {...ANIMATIONS.fadeInUp}>
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <Input
@@ -52,7 +49,7 @@ const TeachersPage = () => {
                 icon={<Search className="h-5 w-5" />}
               />
             </div>
-            
+
             <div className="md:w-64">
               <select
                 value={selectedDepartment}
@@ -69,12 +66,7 @@ const TeachersPage = () => {
         </motion.div>
 
         {/* Teachers Grid */}
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          initial="initial"
-          animate="animate"
-          variants={ANIMATIONS.staggerChildren}
-        >
+        <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" initial="initial" animate="animate" variants={ANIMATIONS.staggerChildren}>
           {filteredTeachers.map((teacher, index) => (
             <TeacherCard
               key={teacher.id}
@@ -88,10 +80,7 @@ const TeachersPage = () => {
 
         {/* Empty State */}
         {filteredTeachers.length === 0 && (
-          <motion.div 
-            className="text-center py-16"
-            {...ANIMATIONS.fadeInUp}
-          >
+          <motion.div className="text-center py-16" {...ANIMATIONS.fadeInUp}>
             <div className="text-center">
               <Search className="h-16 w-16 text-gray-600 mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">No teachers found</h3>

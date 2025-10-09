@@ -1,8 +1,8 @@
-// API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
-const API_TIMEOUT = 10000; // 10 seconds
+import appConfig from '../config/appConfig';
 
-// API Client class
+const API_BASE_URL = appConfig.apiBaseUrl;
+const API_TIMEOUT = appConfig.defaultTimeout;
+
 class ApiClient {
   constructor(baseURL = API_BASE_URL) {
     this.baseURL = baseURL;
@@ -11,7 +11,6 @@ class ApiClient {
     };
   }
 
-  // Set authentication token
   setAuthToken(token) {
     if (token) {
       this.defaultHeaders['Authorization'] = `Bearer ${token}`;
@@ -20,10 +19,8 @@ class ApiClient {
     }
   }
 
-  // Generic request method
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
-    
     const config = {
       timeout: API_TIMEOUT,
       headers: {
@@ -36,7 +33,7 @@ class ApiClient {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
-      
+
       const response = await fetch(url, {
         ...config,
         signal: controller.signal,
@@ -45,7 +42,10 @@ class ApiClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        const error = new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        error.status = response.status;
+        throw error;
       }
 
       const data = await response.json();
@@ -58,68 +58,80 @@ class ApiClient {
     }
   }
 
-  // GET request
-  async get(endpoint, params = {}) {
+  get(endpoint, params = {}) {
     const queryString = new URLSearchParams(params).toString();
     const url = queryString ? `${endpoint}?${queryString}` : endpoint;
-    
-    return this.request(url, {
-      method: 'GET',
-    });
+    return this.request(url, { method: 'GET' });
   }
 
-  // POST request
-  async post(endpoint, data = {}) {
-    return this.request(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+  post(endpoint, data = {}) {
+    return this.request(endpoint, { method: 'POST', body: JSON.stringify(data) });
   }
 
-  // PUT request
-  async put(endpoint, data = {}) {
-    return this.request(endpoint, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
+  put(endpoint, data = {}) {
+    return this.request(endpoint, { method: 'PUT', body: JSON.stringify(data) });
   }
 
-  // PATCH request
-  async patch(endpoint, data = {}) {
-    return this.request(endpoint, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
+  patch(endpoint, data = {}) {
+    return this.request(endpoint, { method: 'PATCH', body: JSON.stringify(data) });
   }
 
-  // DELETE request
-  async delete(endpoint) {
-    return this.request(endpoint, {
-      method: 'DELETE',
-    });
+  delete(endpoint) {
+    return this.request(endpoint, { method: 'DELETE' });
   }
 
-  // File upload request
-  async upload(endpoint, formData) {
+  upload(endpoint, formData) {
     return this.request(endpoint, {
       method: 'POST',
       body: formData,
-      headers: {
-        // Remove Content-Type header to let browser set it with boundary
-        ...Object.fromEntries(
-          Object.entries(this.defaultHeaders).filter(([key]) => key !== 'Content-Type')
-        ),
-      },
+      headers: Object.fromEntries(
+        Object.entries(this.defaultHeaders).filter(([key]) => key.toLowerCase() !== 'content-type')
+      ),
     });
   }
 }
 
-// Create API client instance
 const apiClient = new ApiClient();
 
-// API Service Functions
+// Common API error handler
+const handleApiError = (error) => {
+  if (error.status) {
+    switch (error.status) {
+      case 401:
+        localStorage.removeItem('authToken');
+        window.location.href = '/login';
+        break;
+      case 403:
+        throw new Error("Access denied. You don't have permission to perform this action.");
+      case 404:
+        throw new Error('The requested resource was not found.');
+      case 422:
+        throw new Error(error.message || 'Validation error occurred.');
+      case 500:
+        throw new Error('Internal server error. Please try again later.');
+      default:
+        throw new Error(error.message || 'An unexpected error occurred.');
+    }
+  } else if (error.message) {
+    throw error;
+  } else {
+    throw new Error('An unexpected error occurred.');
+  }
+};
+
+// Wrap request with error handler
+const originalRequest = apiClient.request.bind(apiClient);
+apiClient.request = async (endpoint, options) => {
+  try {
+    return await originalRequest(endpoint, options);
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
+export default apiClient;
+export { apiClient };
 export const apiService = {
-  // Authentication
   auth: {
     login: (credentials) => apiClient.post('/api/auth/login', credentials),
     register: (userData) => apiClient.post('/api/auth/register', userData),
@@ -128,8 +140,6 @@ export const apiService = {
     forgotPassword: (email) => apiClient.post('/api/auth/forgot-password', { email }),
     resetPassword: (token, password) => apiClient.post('/api/auth/reset-password', { token, password }),
   },
-
-  // Users
   users: {
     getProfile: () => apiClient.get('/api/users/profile'),
     updateProfile: (data) => apiClient.put('/api/users/profile', data),
@@ -138,8 +148,6 @@ export const apiService = {
     getStudents: (params) => apiClient.get('/api/users/students', params),
     getUserById: (id) => apiClient.get(`/api/users/${id}`),
   },
-
-  // Appointments
   appointments: {
     getAll: (params) => apiClient.get('/api/appointments', params),
     getById: (id) => apiClient.get(`/api/appointments/${id}`),
@@ -151,8 +159,6 @@ export const apiService = {
     cancel: (id, data) => apiClient.patch(`/api/appointments/${id}/cancel`, data),
     reschedule: (id, data) => apiClient.patch(`/api/appointments/${id}/reschedule`, data),
   },
-
-  // Messages
   messages: {
     getConversations: () => apiClient.get('/api/messages/conversations'),
     getMessages: (conversationId, params) => apiClient.get(`/api/messages/${conversationId}`, params),
@@ -160,8 +166,6 @@ export const apiService = {
     markAsRead: (conversationId) => apiClient.patch(`/api/messages/${conversationId}/read`),
     deleteConversation: (conversationId) => apiClient.delete(`/api/messages/${conversationId}`),
   },
-
-  // Schedule (for teachers)
   schedule: {
     getSchedule: (params) => apiClient.get('/api/schedule', params),
     updateSchedule: (data) => apiClient.put('/api/schedule', data),
@@ -169,8 +173,6 @@ export const apiService = {
     blockSlot: (data) => apiClient.post('/api/schedule/block', data),
     unblockSlot: (slotId) => apiClient.delete(`/api/schedule/block/${slotId}`),
   },
-
-  // Admin
   admin: {
     getUsers: (params) => apiClient.get('/api/admin/users', params),
     updateUserStatus: (userId, status) => apiClient.patch(`/api/admin/users/${userId}/status`, { status }),
@@ -182,8 +184,6 @@ export const apiService = {
     getSettings: () => apiClient.get('/api/admin/settings'),
     updateSettings: (data) => apiClient.put('/api/admin/settings', data),
   },
-
-  // Notifications
   notifications: {
     getAll: (params) => apiClient.get('/api/notifications', params),
     markAsRead: (notificationId) => apiClient.patch(`/api/notifications/${notificationId}/read`),
@@ -191,8 +191,6 @@ export const apiService = {
     delete: (notificationId) => apiClient.delete(`/api/notifications/${notificationId}`),
     getUnreadCount: () => apiClient.get('/api/notifications/unread-count'),
   },
-
-  // Departments & Subjects
   metadata: {
     getDepartments: () => apiClient.get('/api/metadata/departments'),
     getSubjects: (departmentId) => apiClient.get(`/api/metadata/subjects/${departmentId}`),
@@ -200,51 +198,3 @@ export const apiService = {
     getAppointmentPurposes: () => apiClient.get('/api/metadata/appointment-purposes'),
   },
 };
-
-// Response interceptor for handling common errors
-const handleApiError = (error) => {
-  if (error.response) {
-    // Server responded with error status
-    const { status, data } = error.response;
-    
-    switch (status) {
-      case 401:
-        // Unauthorized - redirect to login
-        localStorage.removeItem('authToken');
-        window.location.href = '/login';
-        break;
-      case 403:
-        // Forbidden
-        throw new Error('Access denied. You don\'t have permission to perform this action.');
-      case 404:
-        throw new Error('The requested resource was not found.');
-      case 422:
-        // Validation errors
-        throw new Error(data.message || 'Validation error occurred.');
-      case 500:
-        throw new Error('Internal server error. Please try again later.');
-      default:
-        throw new Error(data.message || 'An unexpected error occurred.');
-    }
-  } else if (error.request) {
-    // Network error
-    throw new Error('Network error. Please check your internet connection.');
-  } else {
-    // Other errors
-    throw new Error(error.message || 'An unexpected error occurred.');
-  }
-};
-
-// Set up response interceptor
-const originalRequest = apiClient.request.bind(apiClient);
-apiClient.request = async (endpoint, options) => {
-  try {
-    return await originalRequest(endpoint, options);
-  } catch (error) {
-    handleApiError(error);
-  }
-};
-
-// Export API client and service
-export default apiClient;
-export { apiClient };

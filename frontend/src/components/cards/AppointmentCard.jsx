@@ -3,13 +3,17 @@ import { motion } from 'framer-motion';
 import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { Card, Button, Badge } from '../ui';
 import { ANIMATIONS, APPOINTMENT_STATUS } from '../../data';
+import { useAuth } from '../../contexts/AuthContext';
+import { formatDate } from '../../utils';
 
-const AppointmentCard = ({ 
-  appointment, 
+const AppointmentCard = ({
+  appointment,
   onAction,
   userRole = 'student',
-  index = 0 
+  index = 0
 }) => {
+  const { user } = useAuth();
+
   const getStatusIcon = (status) => {
     switch (status) {
       case APPOINTMENT_STATUS.CONFIRMED: return CheckCircle;
@@ -50,8 +54,8 @@ const AppointmentCard = ({
               <p className="text-sm text-gray-400">{appointment.subject}</p>
             </div>
           </div>
-          
-          <Badge 
+
+          <Badge
             variant={getStatusVariant(appointment.status)}
             icon={<StatusIcon className="h-3 w-3" />}
             size="small"
@@ -64,19 +68,14 @@ const AppointmentCard = ({
         <div className="space-y-3 mb-4">
           <div className="flex items-center space-x-2 text-sm">
             <Calendar className="h-4 w-4 text-gray-400" />
-            <span>{new Date(appointment.date).toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}</span>
+            <span>{formatDate(appointment.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
           </div>
-          
+
           <div className="flex items-center space-x-2 text-sm">
             <Clock className="h-4 w-4 text-gray-400" />
             <span>{appointment.time}</span>
           </div>
-          
+
           <div className="text-sm">
             <span className="text-gray-400">Purpose: </span>
             <span>{appointment.purpose}</span>
@@ -114,7 +113,7 @@ const AppointmentCard = ({
               </Button>
             </>
           )}
-          
+
           {appointment.status === APPOINTMENT_STATUS.CONFIRMED && (
             <Button
               variant="primary"

@@ -1,5 +1,30 @@
 // Framer Motion Animation Presets
-
+export const ANIMATIONS = {
+  fadeInUp: {
+    initial: { opacity: 0, y: 60 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.6 }
+  },
+  
+  staggerChildren: {
+    animate: {
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  },
+  
+  scaleOnHover: {
+    whileHover: { scale: 1.05 },
+    whileTap: { scale: 0.95 }
+  },
+  
+  slideInFromLeft: {
+    initial: { opacity: 0, x: -20 },
+    animate: { opacity: 1, x: 0 },
+    transition: { duration: 0.6 }
+  }
+};
 // Basic animations
 export const fadeIn = {
   initial: { opacity: 0 },

@@ -19,18 +19,15 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     this.setState({
-      error: error,
-      errorInfo: errorInfo
+      error,
+      errorInfo
     });
 
-    // Log error to console in development
-    const isDev = import.meta.env.DEV; // ✅ Fixed: Use import.meta.env instead of process.env
+    const isDev = import.meta.env.DEV;
     if (isDev) {
       console.error('Error caught by boundary:', error, errorInfo);
     }
-
-    // Here you would typically log to an error reporting service
-    // Example: Sentry.captureException(error, { extra: errorInfo });
+    // Log to error reporting service here if needed
   }
 
   handleReload = () => {
@@ -43,20 +40,20 @@ class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
-      const isDev = import.meta.env.DEV; // ✅ Fixed: Use import.meta.env instead of process.env
-      
+      const isDev = import.meta.env.DEV;
+
       return (
         <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
           <div className="text-center max-w-md">
             <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertTriangle className="h-8 w-8 text-white" />
             </div>
-            
+
             <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
             <p className="text-gray-400 mb-8">
               We're sorry, but something unexpected happened. Please try reloading the page or go back to the homepage.
             </p>
-            
+
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
@@ -66,7 +63,7 @@ class ErrorBoundary extends React.Component {
                 >
                   Reload Page
                 </Button>
-                
+
                 <Button
                   variant="secondary"
                   onClick={this.handleGoHome}
@@ -75,7 +72,7 @@ class ErrorBoundary extends React.Component {
                   Go Home
                 </Button>
               </div>
-              
+
               <Button
                 variant="ghost"
                 onClick={() => window.history.back()}
@@ -84,8 +81,7 @@ class ErrorBoundary extends React.Component {
                 Go Back
               </Button>
             </div>
-            
-            {/* Error Details (Development Only) */}
+
             {isDev && this.state.error && (
               <details className="mt-8 text-left">
                 <summary className="cursor-pointer text-red-400 font-semibold mb-4">
@@ -98,7 +94,7 @@ class ErrorBoundary extends React.Component {
                       {this.state.error.toString()}
                     </pre>
                   </div>
-                  
+
                   {this.state.errorInfo?.componentStack && (
                     <div>
                       <h4 className="text-red-300 font-semibold mb-2">Component Stack:</h4>
@@ -110,7 +106,7 @@ class ErrorBoundary extends React.Component {
                 </div>
               </details>
             )}
-            
+
             <p className="text-xs text-gray-500 mt-6">
               Error ID: {this.state.eventId || 'N/A'}
             </p>

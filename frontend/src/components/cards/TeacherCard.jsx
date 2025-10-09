@@ -4,11 +4,11 @@ import { Star, Calendar, MessageSquare, User } from 'lucide-react';
 import { Card, Button, Badge } from '../ui';
 import { ANIMATIONS } from '../../data';
 
-const TeacherCard = ({ 
-  teacher, 
-  onBook, 
+const TeacherCard = ({
+  teacher,
+  onBook,
   onMessage,
-  index = 0 
+  index = 0
 }) => {
   return (
     <motion.div
@@ -39,17 +39,17 @@ const TeacherCard = ({
                 <span>{teacher.rating}</span>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-400">Status:</span>
-              <Badge 
+              <Badge
                 variant={teacher.availability === 'Available' ? 'success' : 'danger'}
                 size="small"
               >
                 {teacher.availability}
               </Badge>
             </div>
-            
+
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-400">Next Slot:</span>
               <span className="text-sm">{teacher.nextSlot}</span>

@@ -1,11 +1,11 @@
 import React from 'react';
 
-const Input = ({ 
-  label, 
-  type = 'text', 
-  placeholder, 
-  value, 
-  onChange, 
+const Input = ({
+  label,
+  type = 'text',
+  placeholder,
+  value,
+  onChange,
   error,
   icon,
   required = false,
@@ -13,7 +13,7 @@ const Input = ({
   className = '',
   id,
   name,
-  ...props 
+  ...props
 }) => {
   const inputId = id || name;
 
@@ -26,7 +26,7 @@ const Input = ({
           {required && <span className="text-red-400 ml-1">*</span>}
         </label>
       )}
-      
+
       <div className="relative">
         <input
           id={inputId}
@@ -43,10 +43,8 @@ const Input = ({
           {...props}
         />
       </div>
-      
-      {error && (
-        <p className="text-red-400 text-sm">{error}</p>
-      )}
+
+      {error && <p className="text-red-400 text-sm">{error}</p>}
     </div>
   );
 };

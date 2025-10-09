@@ -1,19 +1,19 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ANIMATIONS } from '../../data/constants';
+import { ANIMATIONS } from '../../utils/animations';
 
-const Button = ({ 
-  children, 
-  variant = 'primary', 
+const Button = ({
+  children,
+  variant = 'primary',
   size = 'medium',
-  onClick, 
-  disabled = false, 
+  onClick,
+  disabled = false,
   type = 'button',
   className = '',
   icon = null,
   loading = false,
   fullWidth = false,
-  ...props 
+  ...props
 }) => {
   const getVariantClass = (variant) => {
     switch (variant) {

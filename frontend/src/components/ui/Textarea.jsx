@@ -1,10 +1,10 @@
 import React from 'react';
 
-const Textarea = ({ 
-  label, 
-  placeholder, 
-  value, 
-  onChange, 
+const Textarea = ({
+  label,
+  placeholder,
+  value,
+  onChange,
   error,
   icon,
   required = false,
@@ -13,7 +13,7 @@ const Textarea = ({
   id,
   name,
   rows = 4,
-  ...props 
+  ...props
 }) => {
   const textareaId = id || name;
 
@@ -26,7 +26,7 @@ const Textarea = ({
           {required && <span className="text-red-400 ml-1">*</span>}
         </label>
       )}
-      
+
       <div className="relative">
         <textarea
           id={textareaId}
@@ -43,10 +43,8 @@ const Textarea = ({
           {...props}
         />
       </div>
-      
-      {error && (
-        <p className="text-red-400 text-sm">{error}</p>
-      )}
+
+      {error && <p className="text-red-400 text-sm">{error}</p>}
     </div>
   );
 };

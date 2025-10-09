@@ -5,11 +5,11 @@ import { BookOpen } from 'lucide-react';
 import { Button } from '../ui';
 import { ANIMATIONS, ROUTES } from '../../data/constants';
 
-const Header = ({ 
-  title, 
-  backTo, 
+const Header = ({
+  title,
+  backTo,
   actions = null,
-  showLogo = true 
+  showLogo = true
 }) => {
   const navigate = useNavigate();
 
@@ -22,7 +22,7 @@ const Header = ({
   };
 
   return (
-    <motion.header 
+    <motion.header
       className="bg-gray-900/50 backdrop-blur-sm border-b border-gray-800 px-6 py-4"
       {...ANIMATIONS.slideInFromLeft}
     >
@@ -38,12 +38,12 @@ const Header = ({
               {!title && <span className="text-xl font-bold">Appointed</span>}
             </motion.button>
           )}
-          
+
           {title && (
             <h1 className="text-2xl font-bold">{title}</h1>
           )}
         </div>
-        
+
         {actions && (
           <div className="flex items-center space-x-3">
             {actions}

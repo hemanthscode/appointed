@@ -2,25 +2,36 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
-  User, 
   Calendar, 
   Clock, 
-  MessageSquare,
-  CheckCircle,
-  XCircle
+  User, 
+  MessageSquare, 
+  CheckCircle, 
+  XCircle 
 } from 'lucide-react';
 import { Layout } from '../components/common';
 import { Card, Button, Badge } from '../components/ui';
-import { APPOINTMENT_REQUESTS, ROUTES, ANIMATIONS } from '../data';
+import { useApi } from '../hooks';
+import { apiService } from '../services';
+import { ROUTES, ANIMATIONS } from '../data';
 
 const RequestsPage = () => {
   const navigate = useNavigate();
   const [filterStatus, setFilterStatus] = useState('pending');
 
-  const appointmentRequests = APPOINTMENT_REQUESTS;
+  const { data: appointmentRequests = [] } = useApi(() => apiService.admin.getApprovals(), []);
 
-  const handleRequest = (id, action, reason = '') => {
-    console.log(`${action} request ${id}`, reason ? `Reason: ${reason}` : '');
+  const handleRequest = async (id, action, reason = '') => {
+    try {
+      if (action === 'approve') {
+        await apiService.admin.approveUser(id);
+      } else if (action === 'reject') {
+        await apiService.admin.rejectUser(id, { reason });
+      }
+      // Refetch or update list after action
+    } catch (error) {
+      console.error(`${action} request error:`, error);
+    }
   };
 
   const getStatusVariant = (status) => {
@@ -32,30 +43,22 @@ const RequestsPage = () => {
     }
   };
 
-  const filteredRequests = appointmentRequests.filter(req => 
+  const filteredRequests = appointmentRequests.filter(req =>
     filterStatus === 'all' || req.status === filterStatus
   );
 
   return (
-    <Layout 
-      headerTitle="Appointment Requests"
-      headerBackTo={ROUTES.DASHBOARD}
-    >
+    <Layout headerTitle="Appointment Requests" headerBackTo={ROUTES.DASHBOARD}>
       <div className="p-6">
         {/* Filter Tabs */}
-        <motion.div 
-          className="mb-6"
-          {...ANIMATIONS.fadeInUp}
-        >
+        <motion.div className="mb-6" {...ANIMATIONS.fadeInUp}>
           <div className="flex space-x-2 bg-gray-900/50 p-1 rounded-lg inline-flex">
             {['pending', 'confirmed', 'rejected', 'all'].map((status) => (
               <button
                 key={status}
                 onClick={() => setFilterStatus(status)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-                  filterStatus === status
-                    ? 'bg-white text-black'
-                    : 'text-gray-400 hover:text-white'
+                  filterStatus === status ? 'bg-white text-black' : 'text-gray-400 hover:text-white'
                 }`}
               >
                 {status}
@@ -65,17 +68,9 @@ const RequestsPage = () => {
         </motion.div>
 
         {/* Requests List */}
-        <motion.div 
-          className="space-y-4"
-          initial="initial"
-          animate="animate"
-          variants={ANIMATIONS.staggerChildren}
-        >
+        <motion.div className="space-y-4" initial="initial" animate="animate" variants={ANIMATIONS.staggerChildren}>
           {filteredRequests.map((request, index) => (
-            <motion.div
-              key={request.id}
-              variants={ANIMATIONS.fadeInUp}
-            >
+            <motion.div key={request.id} variants={ANIMATIONS.fadeInUp}>
               <Card>
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">
@@ -83,16 +78,16 @@ const RequestsPage = () => {
                     <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center">
                       <User className="h-6 w-6" />
                     </div>
-                    
+
                     <div>
                       <h3 className="text-lg font-semibold">{request.student}</h3>
                       <p className="text-sm text-gray-400">{request.studentEmail}</p>
                       <p className="text-xs text-gray-500">
-                        Requested: {request.requestedAt}
+                        Requested: {new Date(request.requestedAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
-                  
+
                   <Badge variant={getStatusVariant(request.status)} size="small">
                     {request.status}
                   </Badge>
@@ -103,19 +98,19 @@ const RequestsPage = () => {
                   <div className="flex items-center space-x-2">
                     <Calendar className="h-4 w-4 text-gray-400" />
                     <span className="text-sm">
-                      {new Date(request.date).toLocaleDateString('en-US', { 
-                        weekday: 'short', 
-                        month: 'short', 
-                        day: 'numeric' 
+                      {new Date(request.date).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric'
                       })}
                     </span>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Clock className="h-4 w-4 text-gray-400" />
                     <span className="text-sm">{request.time}</span>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <span className="text-sm font-medium">Purpose:</span>
                     <span className="text-sm">{request.purpose}</span>
@@ -144,7 +139,7 @@ const RequestsPage = () => {
                     >
                       Approve Appointment
                     </Button>
-                    
+
                     <Button
                       onClick={() => {
                         const reason = prompt('Reason for rejection (optional):');
@@ -156,7 +151,7 @@ const RequestsPage = () => {
                     >
                       Reject Request
                     </Button>
-                    
+
                     <Button
                       onClick={() => navigate(`${ROUTES.MESSAGES}?student=${request.id}`)}
                       variant="secondary"
@@ -170,10 +165,7 @@ const RequestsPage = () => {
 
                 {request.status === 'confirmed' && (
                   <div className="flex gap-3">
-                    <Button
-                      variant="info"
-                      className="flex-1"
-                    >
+                    <Button variant="info" className="flex-1">
                       View in Schedule
                     </Button>
                     <Button
@@ -189,7 +181,7 @@ const RequestsPage = () => {
 
                 {request.status === 'rejected' && request.respondedAt && (
                   <div className="text-sm text-gray-500">
-                    Rejected on: {request.respondedAt}
+                    Rejected on: {new Date(request.respondedAt).toLocaleDateString()}
                   </div>
                 )}
               </Card>
@@ -199,17 +191,13 @@ const RequestsPage = () => {
 
         {/* Empty State */}
         {filteredRequests.length === 0 && (
-          <motion.div 
-            className="text-center py-16"
-            {...ANIMATIONS.fadeInUp}
-          >
+          <motion.div className="text-center py-16" {...ANIMATIONS.fadeInUp}>
             <Calendar className="h-16 w-16 text-gray-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">No requests found</h3>
             <p className="text-gray-400">
-              {filterStatus === 'all' 
-                ? "You don't have any appointment requests yet." 
-                : `No ${filterStatus} requests found.`
-              }
+              {filterStatus === 'all'
+                ? "You don't have any appointment requests yet."
+                : `No ${filterStatus} requests found.`}
             </p>
           </motion.div>
         )}

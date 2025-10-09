@@ -145,15 +145,13 @@ const validateScheduleSlot = [
   body('date')
     .isISO8601()
     .toDate()
-    .custom((value) => {
-      if (value < new Date()) {
-        throw new Error('Schedule date cannot be in the past');
-      }
+    .custom(value => {
+      if (value < new Date()) throw new Error('Schedule date cannot be in the past');
       return true;
     }),
   body('time')
     .matches(/^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM)$/i)
-    .withMessage('Please provide a valid time format'),
+    .withMessage('Please provide a valid time format (e.g., 2:00 PM)'),
   body('status')
     .optional()
     .isIn(['available', 'blocked', 'unavailable'])
@@ -162,32 +160,34 @@ const validateScheduleSlot = [
     .optional()
     .isLength({ max: 100 })
     .withMessage('Block reason cannot be more than 100 characters'),
-  handleValidationErrors
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({ success: false, message: 'Validation error', errors: errors.array() });
+    next();
+  }
 ];
 
-// Parameter validations
 const validateMongoId = (paramName = 'id') => [
-  param(paramName)
-    .isMongoId()
-    .withMessage(`Valid ${paramName} is required`),
-  handleValidationErrors
+  param(paramName).isMongoId().withMessage(`Valid ${paramName} is required`),
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({ success: false, message: 'Validation error', errors: errors.array() });
+    next();
+  }
 ];
 
-// Query validations
 const validatePagination = [
-  query('page')
-    .optional()
-    .isInt({ min: 1 })
-    .withMessage('Page must be a positive integer'),
-  query('limit')
-    .optional()
-    .isInt({ min: 1, max: 100 })
-    .withMessage('Limit must be between 1 and 100'),
-  query('sort')
-    .optional()
-    .isIn(['createdAt', '-createdAt', 'name', '-name', 'date', '-date'])
-    .withMessage('Invalid sort field'),
-  handleValidationErrors
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  query('sort').optional().isIn(['createdAt', '-createdAt', 'name', '-name', 'date', '-date']).withMessage('Invalid sort field'),
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({ success: false, message: 'Validation error', errors: errors.array() });
+    next();
+  }
 ];
 
 const validateAppointmentQuery = [

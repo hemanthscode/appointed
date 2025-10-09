@@ -1,8 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { pulse } from '../../utils/animations';
 
-const LoadingSpinner = ({ 
-  size = 'medium', 
+const LoadingSpinner = ({
+  size = 'medium',
   color = 'white',
   text = null,
   className = ''
@@ -28,8 +29,8 @@ const LoadingSpinner = ({
     <div className={`flex flex-col items-center justify-center ${className}`}>
       <motion.div
         className={`${sizeClasses[size]} border-2 ${colorClasses[color]} border-t-transparent rounded-full`}
-        animate={{ rotate: 360 }}
-        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+        animate={pulse.animate}
+        transition={pulse.transition}
       />
       {text && (
         <p className="mt-3 text-sm text-gray-400">{text}</p>

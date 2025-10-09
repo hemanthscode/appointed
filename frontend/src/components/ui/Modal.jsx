@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import Button from './Button';
 
-const Modal = ({ 
-  isOpen, 
-  onClose, 
-  title, 
-  children, 
+const Modal = ({
+  isOpen,
+  onClose,
+  title,
+  children,
   footer,
   size = 'medium',
   closeOnBackdrop = true,
@@ -21,7 +21,6 @@ const Modal = ({
     full: 'max-w-full mx-4'
   };
 
-  // Handle escape key
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && isOpen) {
@@ -49,7 +48,6 @@ const Modal = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          {/* Backdrop */}
           <motion.div
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={closeOnBackdrop ? onClose : undefined}
@@ -57,8 +55,7 @@ const Modal = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           />
-          
-          {/* Modal */}
+
           <motion.div
             className={`relative bg-gray-900 rounded-xl border border-gray-800 shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] overflow-y-auto`}
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -66,12 +63,9 @@ const Modal = ({
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ duration: 0.3 }}
           >
-            {/* Header */}
             {(title || showCloseButton) && (
               <div className="flex items-center justify-between p-6 border-b border-gray-800">
-                {title && (
-                  <h3 className="text-xl font-bold text-white">{title}</h3>
-                )}
+                {title && <h3 className="text-xl font-bold text-white">{title}</h3>}
                 {showCloseButton && (
                   <Button
                     variant="ghost"
@@ -83,13 +77,9 @@ const Modal = ({
                 )}
               </div>
             )}
-            
-            {/* Body */}
-            <div className="p-6 text-white">
-              {children}
-            </div>
-            
-            {/* Footer */}
+
+            <div className="p-6 text-white">{children}</div>
+
             {footer && (
               <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-800">
                 {footer}

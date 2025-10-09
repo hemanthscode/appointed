@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Calendar, 
-  Users, 
-  MessageSquare, 
+import {
+  Calendar,
+  Users,
+  MessageSquare,
   Settings,
   Bell,
   LogOut,
-  Plus,
-  Clock,
-  CheckCircle,
-  BookOpen
+  Plus
 } from 'lucide-react';
 import { Layout } from '../components/common';
 import { StatsCard } from '../components/cards';
@@ -49,17 +46,17 @@ const Dashboard = () => {
 
   const iconMap = {
     Calendar,
-    CheckCircle,
-    Clock,
+    CheckCircle: Calendar, // Assuming you want to map CheckCircle icon, replace if needed
+    Clock: Calendar,
     MessageSquare,
     Users,
     Bell
   };
 
-  const stats = DASHBOARD_STATS[userRole]?.map(stat => ({
+  const stats = (DASHBOARD_STATS[userRole] || []).map(stat => ({
     ...stat,
-    icon: iconMap[stat.icon]
-  })) || [];
+    icon: iconMap[stat.icon] || Calendar
+  }));
 
   const handleLogout = () => {
     logout();
@@ -80,19 +77,19 @@ const Dashboard = () => {
   );
 
   return (
-    <Layout 
+    <Layout
       headerTitle="Appointed Dashboard"
       headerBackTo={ROUTES.HOME}
       headerActions={headerActions}
     >
       <div className="flex">
         {/* Sidebar */}
-        <motion.aside 
+        <motion.aside
           className="w-64 bg-gray-900/30 backdrop-blur-sm border-r border-gray-800 min-h-screen p-6"
           {...ANIMATIONS.slideInFromLeft}
         >
           <nav className="space-y-2">
-            {menuItems[userRole]?.map((item, index) => (
+            {menuItems[userRole].map((item, index) => (
               <motion.button
                 key={index}
                 onClick={() => navigate(item.path)}
@@ -109,7 +106,7 @@ const Dashboard = () => {
         {/* Main Content */}
         <main className="flex-1 p-6">
           {/* Stats Grid */}
-          <motion.div 
+          <motion.div
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
             initial="initial"
             animate="animate"
@@ -128,22 +125,19 @@ const Dashboard = () => {
           </motion.div>
 
           {/* Quick Actions */}
-          <motion.div 
-            {...ANIMATIONS.fadeInUp}
-            className="mb-8"
-          >
+          <motion.div {...ANIMATIONS.fadeInUp} className="mb-8">
             <Card>
               <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
               <div className="flex flex-wrap gap-4">
                 {userRole === USER_ROLES.STUDENT && (
                   <>
-                    <Button 
+                    <Button
                       onClick={() => navigate(ROUTES.TEACHERS)}
                       icon={<Plus className="h-4 w-4" />}
                     >
                       Book Appointment
                     </Button>
-                    <Button 
+                    <Button
                       variant="secondary"
                       onClick={() => navigate(ROUTES.MESSAGES)}
                       icon={<MessageSquare className="h-4 w-4" />}
@@ -152,16 +146,16 @@ const Dashboard = () => {
                     </Button>
                   </>
                 )}
-                
+
                 {userRole === USER_ROLES.TEACHER && (
                   <>
-                    <Button 
+                    <Button
                       onClick={() => navigate(ROUTES.SCHEDULE)}
                       icon={<Calendar className="h-4 w-4" />}
                     >
                       View Schedule
                     </Button>
-                    <Button 
+                    <Button
                       variant="secondary"
                       onClick={() => navigate(ROUTES.REQUESTS)}
                       icon={<Bell className="h-4 w-4" />}
@@ -173,13 +167,13 @@ const Dashboard = () => {
 
                 {userRole === USER_ROLES.ADMIN && (
                   <>
-                    <Button 
+                    <Button
                       onClick={() => navigate(ROUTES.ADMIN)}
                       icon={<Users className="h-4 w-4" />}
                     >
                       Manage Users
                     </Button>
-                    <Button 
+                    <Button
                       variant="secondary"
                       onClick={() => navigate('/admin/approvals')}
                       icon={<Bell className="h-4 w-4" />}
@@ -192,11 +186,8 @@ const Dashboard = () => {
             </Card>
           </motion.div>
 
-          {/* Recent Activity */}
-          <motion.div 
-            {...ANIMATIONS.fadeInUp}
-            style={{ transitionDelay: '0.2s' }}
-          >
+          {/* Recent Activity - Placeholder */}
+          <motion.div {...ANIMATIONS.fadeInUp} style={{ transitionDelay: '0.2s' }}>
             <Card>
               <h2 className="text-xl font-bold mb-4">Recent Activity</h2>
               <div className="space-y-4">

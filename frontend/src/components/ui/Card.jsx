@@ -1,14 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-const Card = ({ 
-  children, 
-  className = '', 
+const Card = ({
+  children,
+  className = '',
   hoverable = false,
   clickable = false,
   onClick,
   padding = 'p-6',
-  ...props 
+  ...props
 }) => {
   const cardProps = {
     className: `bg-gray-900/50 backdrop-blur-sm ${padding} rounded-xl border border-gray-800 ${
@@ -23,11 +23,7 @@ const Card = ({
     cardProps.whileTap = clickable ? { scale: 0.98 } : undefined;
   }
 
-  return (
-    <motion.div {...cardProps}>
-      {children}
-    </motion.div>
-  );
+  return <motion.div {...cardProps}>{children}</motion.div>;
 };
 
 export default Card;

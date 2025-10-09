@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { Button, Input } from '../ui';
-import { validateLoginForm } from '../../utils/validators';
+import { validateLoginForm } from '../../utils';
 
 const LoginForm = ({ onSubmit, loading = false }) => {
   const [formData, setFormData] = useState({
@@ -17,8 +17,7 @@ const LoginForm = ({ onSubmit, loading = false }) => {
       ...prev,
       [name]: value
     }));
-    
-    // Clear error when user starts typing
+
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -29,15 +28,13 @@ const LoginForm = ({ onSubmit, loading = false }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // Validate form
+
     const validation = validateLoginForm(formData);
     if (!validation.isValid) {
       setErrors(validation.errors);
       return;
     }
-    
-    // Clear errors and submit
+
     setErrors({});
     onSubmit(formData);
   };
@@ -56,7 +53,7 @@ const LoginForm = ({ onSubmit, loading = false }) => {
         required
         disabled={loading}
       />
-      
+
       <div className="relative">
         <Input
           label="Password"
@@ -73,13 +70,13 @@ const LoginForm = ({ onSubmit, loading = false }) => {
         <button
           type="button"
           onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-3 top-[38px] text-gray-400 hover:text-white transition-colors"
+          className="absolute right-3 top-[38px] text-gray-400"
           disabled={loading}
         >
           {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
         </button>
       </div>
-      
+
       <Button
         type="submit"
         variant="primary"

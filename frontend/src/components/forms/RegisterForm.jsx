@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, User, Mail, Lock, Shield } from 'lucide-react';
 import { Button, Input, Select } from '../ui';
-import { validateRegisterForm } from '../../utils/validators';
-import { DEPARTMENTS, USER_YEARS } from '../../data/mockData';
+import { validateRegisterForm } from '../../utils';
+import { DEPARTMENTS, USER_YEARS } from '../../data';
 
 const RegisterForm = ({ onSubmit, loading = false }) => {
   const [formData, setFormData] = useState({
@@ -22,8 +22,7 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
       ...prev,
       [name]: value
     }));
-    
-    // Clear error when user starts typing
+
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -34,15 +33,13 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // Validate form
+
     const validation = validateRegisterForm(formData);
     if (!validation.isValid) {
       setErrors(validation.errors);
       return;
     }
-    
-    // Clear errors and submit
+
     setErrors({});
     onSubmit(formData);
   };
@@ -69,7 +66,7 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
         required
         disabled={loading}
       />
-      
+
       <Input
         label="Email"
         type="email"
@@ -82,7 +79,7 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
         required
         disabled={loading}
       />
-      
+
       <div className="relative">
         <Input
           label="Password"
@@ -99,13 +96,13 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
         <button
           type="button"
           onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-3 top-[38px] text-gray-400 hover:text-white transition-colors"
+          className="absolute right-3 top-[38px] text-gray-400"
           disabled={loading}
         >
           {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
         </button>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Select
           label="User Type"
@@ -119,7 +116,7 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
           required
           disabled={loading}
         />
-        
+
         <Select
           label="Department"
           name="department"
@@ -132,8 +129,7 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
           disabled={loading}
         />
       </div>
-      
-      {/* Show year selection only for students */}
+
       {formData.userType === 'student' && (
         <Select
           label="Academic Year"
@@ -145,7 +141,7 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
           disabled={loading}
         />
       )}
-      
+
       <Button
         type="submit"
         variant="primary"
@@ -154,7 +150,7 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
         fullWidth
         disabled={loading}
       >
-        {loading ? 'Creating Account...' : 'Create Account'}
+        {loading ? 'Creating Account...' : 'Sign Up'}
       </Button>
     </form>
   );

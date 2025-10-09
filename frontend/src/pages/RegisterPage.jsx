@@ -5,8 +5,8 @@ import { BookOpen } from 'lucide-react';
 import { Layout } from '../components/common';
 import { RegisterForm } from '../components/forms';
 import { Card } from '../components/ui';
-import { useAuth } from '../hooks';
-import { ROUTES, ANIMATIONS } from '../data';
+import { useAuth } from '../contexts/AuthContext';
+import { ROUTES, ANIMATIONS } from '../data/constants';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -16,6 +16,8 @@ const RegisterPage = () => {
     const result = await register(formData);
     if (result.success) {
       navigate(ROUTES.DASHBOARD);
+    } else {
+      alert(result.error || 'Registration failed');
     }
   };
 
@@ -24,8 +26,7 @@ const RegisterPage = () => {
 
   return (
     <Layout showHeader={false}>
-      {/* Logo */}
-      <motion.div 
+      <motion.div
         className="absolute top-6 left-6 flex items-center space-x-2 cursor-pointer"
         onClick={goHome}
         {...ANIMATIONS.scaleOnHover}
@@ -36,15 +37,10 @@ const RegisterPage = () => {
       </motion.div>
 
       <div className="min-h-screen flex items-center justify-center px-4 py-8">
-        <motion.div 
-          className="w-full max-w-md"
-          {...ANIMATIONS.fadeInUp}
-        >
+        <motion.div className="w-full max-w-md" {...ANIMATIONS.fadeInUp}>
           <Card>
             <h2 className="text-3xl font-bold mb-8 text-center">Create Account</h2>
-            
             <RegisterForm onSubmit={handleRegister} loading={loading} />
-            
             <p className="text-center text-gray-400 mt-8">
               Already have an account?{' '}
               <button

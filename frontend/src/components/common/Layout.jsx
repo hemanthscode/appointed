@@ -1,8 +1,8 @@
 import React from 'react';
 import Header from './Header';
 
-const Layout = ({ 
-  children, 
+const Layout = ({
+  children,
   headerTitle,
   headerBackTo,
   headerActions,
@@ -12,13 +12,13 @@ const Layout = ({
   return (
     <div className={`min-h-screen bg-black text-white ${className}`}>
       {showHeader && (
-        <Header 
+        <Header
           title={headerTitle}
           backTo={headerBackTo}
           actions={headerActions}
         />
       )}
-      
+
       <main className={showHeader ? 'pt-0' : ''}>
         {children}
       </main>

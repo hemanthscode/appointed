@@ -1,9 +1,9 @@
 import React from 'react';
 
-const Select = ({ 
-  label, 
-  value, 
-  onChange, 
+const Select = ({
+  label,
+  value,
+  onChange,
   options = [],
   error,
   icon,
@@ -13,7 +13,7 @@ const Select = ({
   className = '',
   id,
   name,
-  ...props 
+  ...props
 }) => {
   const selectId = id || name;
 
@@ -26,7 +26,7 @@ const Select = ({
           {required && <span className="text-red-400 ml-1">*</span>}
         </label>
       )}
-      
+
       <div className="relative">
         <select
           id={selectId}
@@ -42,8 +42,8 @@ const Select = ({
         >
           <option value="">{placeholder}</option>
           {options.map((option) => (
-            <option 
-              key={typeof option === 'string' ? option : option.value} 
+            <option
+              key={typeof option === 'string' ? option : option.value}
               value={typeof option === 'string' ? option : option.value}
             >
               {typeof option === 'string' ? option : option.label}
@@ -51,10 +51,8 @@ const Select = ({
           ))}
         </select>
       </div>
-      
-      {error && (
-        <p className="text-red-400 text-sm">{error}</p>
-      )}
+
+      {error && <p className="text-red-400 text-sm">{error}</p>}
     </div>
   );
 };

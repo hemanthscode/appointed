@@ -17,14 +17,13 @@ const scheduleSlotSchema = new mongoose.Schema({
   },
   duration: {
     type: Number,
-    default: 60 // minutes
+    default: 60
   },
   status: {
     type: String,
     enum: ['available', 'booked', 'blocked', 'unavailable'],
     default: 'available'
   },
-  // When booked
   appointment: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Appointment'
@@ -33,12 +32,10 @@ const scheduleSlotSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  // When blocked
   blockReason: {
     type: String,
     maxlength: [100, 'Block reason cannot be more than 100 characters']
   },
-  // Recurring settings
   isRecurring: {
     type: Boolean,
     default: false
@@ -49,7 +46,6 @@ const scheduleSlotSchema = new mongoose.Schema({
     required: function() { return this.isRecurring; }
   },
   recurringEndDate: Date,
-  // Metadata
   notes: String,
   isActive: {
     type: Boolean,
@@ -59,17 +55,16 @@ const scheduleSlotSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes for performance
-scheduleSlotSchema.index({ teacher: 1, date: 1, time: 1 }, { unique: true });
+// Compound unique index to prevent duplicates for same teacher/time/date
+scheduleSlotSchema.index({ teacher: 1, date: 1, time: 1, isActive: 1 }, { unique: true });
 scheduleSlotSchema.index({ teacher: 1, status: 1 });
 scheduleSlotSchema.index({ date: 1, status: 1 });
 
-// Virtual for datetime
+// Virtual for datetime combined from date and time string
 scheduleSlotSchema.virtual('dateTime').get(function() {
   return new Date(`${this.date.toDateString()} ${this.time}`);
 });
 
-// Virtual for is past
 scheduleSlotSchema.virtual('isPast').get(function() {
   return this.dateTime < new Date();
 });

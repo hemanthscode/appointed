@@ -1,19 +1,4 @@
-// Export all hooks
-export { useAuth, AuthProvider } from './useAuth';
-export { default as useLocalStorage, useLocalStorageState, useLocalStorageWithExpiry } from './useLocalStorage';
-export { 
-  default as useApi, 
-  useAppointments, 
-  useTeachers, 
-  useMessages, 
-  useProfile,
-  useMutation,
-  useCreateAppointment,
-  useUpdateAppointment,
-  useDeleteAppointment,
-  useSendMessage,
-  useUpdateProfile,
-  usePaginatedApi,
-  useOptimisticMutation
-} from './useApi';
-
+export { default as useApi } from './useApi';
+export { default as useAuth } from './useAuth';
+export { default as useLocalStorage } from './useLocalStorage';
+export { default as useSocket } from './useSocket';
