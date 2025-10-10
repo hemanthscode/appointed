@@ -1,35 +1,23 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { Button, Input } from '../ui';
-import { validateLoginForm } from '../../utils';
+import { validateLoginForm } from '../../utils/validators';
 
 const LoginForm = ({ onSubmit, loading = false }) => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: null
-      }));
-    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: null }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
     const validation = validateLoginForm(formData);
+
     if (!validation.isValid) {
       setErrors(validation.errors);
       return;
@@ -40,7 +28,7 @@ const LoginForm = ({ onSubmit, loading = false }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
       <Input
         label="Email"
         type="email"
@@ -53,7 +41,6 @@ const LoginForm = ({ onSubmit, loading = false }) => {
         required
         disabled={loading}
       />
-
       <div className="relative">
         <Input
           label="Password"
@@ -72,19 +59,12 @@ const LoginForm = ({ onSubmit, loading = false }) => {
           onClick={() => setShowPassword(!showPassword)}
           className="absolute right-3 top-[38px] text-gray-400"
           disabled={loading}
+          aria-label={showPassword ? 'Hide password' : 'Show password'}
         >
           {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
         </button>
       </div>
-
-      <Button
-        type="submit"
-        variant="primary"
-        size="large"
-        loading={loading}
-        fullWidth
-        disabled={loading}
-      >
+      <Button type="submit" variant="primary" size="large" loading={loading} fullWidth disabled={loading}>
         {loading ? 'Signing In...' : 'Sign In'}
       </Button>
     </form>

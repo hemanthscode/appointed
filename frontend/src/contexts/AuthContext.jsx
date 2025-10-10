@@ -1,106 +1,124 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import authService from '../services/auth';
-import socketService from '../services/socket';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import {authService,userService} from '../services';
+
 
 const AuthContext = createContext();
 
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
-};
-
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(authService.getUser());
-  const [loading, setLoading] = useState(false);
-  const [initialized, setInitialized] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
 
-  useEffect(() => {
-    const initAuth = async () => {
-      setLoading(true);
+  const loadUserFromStorage = useCallback(async () => {
+    setLoading(true);
+    const savedRefreshToken = localStorage.getItem('refreshToken');
+
+    if (savedRefreshToken) {
       try {
-        if (authService.isAuthenticated()) {
-          try {
-            await authService.refreshAccessToken();
-            setUser(authService.getUser());
-            socketService.initialize(authService.getToken());
-          } catch {
-            setUser(authService.getUser());
-            socketService.initialize(authService.getToken());
-          }
-        } else {
-          setUser(null);
-        }
-      } finally {
-        setLoading(false);
-        setInitialized(true);
-      }
-    };
+        const refreshed = await authService.refreshToken(savedRefreshToken);
+        localStorage.setItem('token', refreshed.token);
+        localStorage.setItem('refreshToken', refreshed.refreshToken);
 
-    initAuth();
+        const profileData = await userService.getProfile();
+        setUser(profileData.user);
+        localStorage.setItem('user', JSON.stringify(profileData.user));
+      } catch {
+        logout();
+      }
+    }
+    setLoading(false);
   }, []);
 
+  useEffect(() => {
+    loadUserFromStorage();
+  }, [loadUserFromStorage]);
+
   const login = async (credentials) => {
-    setLoading(true);
+    setAuthLoading(true);
     try {
-      const result = await authService.login(credentials);
-      if (result.success) {
-        setUser(result.data.user);
-        socketService.initialize(result.data.token);
-      }
-      return result;
-    } finally {
-      setLoading(false);
+      const response = await authService.login(credentials);
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('refreshToken', response.refreshToken);
+
+      const profileData = await userService.getProfile();
+      setUser(profileData.user);
+      localStorage.setItem('user', JSON.stringify(profileData.user));
+
+      setAuthLoading(false);
+      return profileData.user;
+    } catch (error) {
+      setAuthLoading(false);
+      throw error;
     }
   };
 
-  const register = async (userData) => {
-    setLoading(true);
+  const register = async (data) => {
+    setAuthLoading(true);
     try {
-      const result = await authService.register(userData);
-      if (result.success) {
-        setUser(result.data.user);
-        socketService.initialize(result.data.token);
-      }
-      return result;
-    } finally {
-      setLoading(false);
+      const response = await authService.register(data);
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('refreshToken', response.refreshToken);
+
+      const profileData = await userService.getProfile();
+      setUser(profileData.user);
+      localStorage.setItem('user', JSON.stringify(profileData.user));
+
+      setAuthLoading(false);
+      return profileData.user;
+    } catch (error) {
+      setAuthLoading(false);
+      throw error;
     }
   };
 
   const logout = async () => {
-    setLoading(true);
+    setAuthLoading(true);
     try {
       await authService.logout();
-      socketService.disconnect();
+    } finally {
       setUser(null);
-    } finally {
-      setLoading(false);
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      setAuthLoading(false);
     }
   };
 
-  const updateProfile = async (profileData) => {
-    setLoading(true);
-    try {
-      setUser((prev) => ({ ...prev, ...profileData }));
-      return { success: true, data: { ...user, ...profileData } };
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(async () => {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) return;
+
+      try {
+        const refreshed = await authService.refreshToken(refreshToken);
+        localStorage.setItem('token', refreshed.token);
+        localStorage.setItem('refreshToken', refreshed.refreshToken);
+
+        const profileData = await userService.getProfile();
+        setUser(profileData.user);
+        localStorage.setItem('user', JSON.stringify(profileData.user));
+      } catch {
+        logout();
+      }
+    }, 14 * 60 * 1000); // 14 minutes
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const updateUserProfile = (updatedUser) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
-  const value = {
-    user,
-    loading,
-    initialized,
-    login,
-    register,
-    logout,
-    updateProfile,
-    isAuthenticated: () => authService.isAuthenticated(),
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{ user, loading, authLoading, login, register, logout, updateUserProfile }}
+    >
+      {!loading && children}
+    </AuthContext.Provider>
+  );
 };
 
-export default AuthContext;
+export const useAuth = () => useContext(AuthContext);

@@ -5,18 +5,18 @@ import { Layout } from '../components/common';
 import { LoginForm } from '../components/forms';
 import { Card } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
-import { ROUTES, ANIMATIONS } from '../data/constants';
+import { ROUTES, ANIMATIONS } from '../utils';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, loading } = useAuth();
+  const { login, authLoading } = useAuth();
 
   const handleLogin = async (formData) => {
-    const result = await login(formData);
-    if (result.success) {
-      navigate(ROUTES.PROFILE);
-    } else {
-      alert(result.error || 'Login failed');
+    try {
+      const user = await login(formData);
+      if (user) navigate(ROUTES.PROFILE);
+    } catch (err) {
+      alert(err.message || 'Login failed');
     }
   };
 
@@ -37,9 +37,9 @@ const LoginPage = () => {
         <motion.div className="w-full max-w-md" {...ANIMATIONS.fadeInUp}>
           <Card>
             <h2 className="text-3xl font-bold mb-8 text-center">Welcome Back</h2>
-            <LoginForm onSubmit={handleLogin} loading={loading} />
+            <LoginForm onSubmit={handleLogin} loading={authLoading} />
             <p className="text-center text-gray-400 mt-8">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <button onClick={goToRegister} className="text-white hover:underline font-medium">
                 Register here
               </button>

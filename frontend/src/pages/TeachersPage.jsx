@@ -1,96 +1,99 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
 import { Layout } from '../components/common';
-import { TeacherCard } from '../components/cards';
-import { Input } from '../components/ui';
-import { useApi } from '../hooks';
-import { apiService } from '../services';
-import { ROUTES, ANIMATIONS, DEPARTMENTS } from '../data';
-import { filterBySearch } from '../utils';
+import { Card, Button, Select, Input, Badge } from '../components/ui';
+import useTeachers from '../hooks/useTeachers';
+import { DEPARTMENTS } from '../utils';
+import { useToast } from '../contexts/ToastContext';
 
 const TeachersPage = () => {
-  const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const toast = useToast();
 
-  const { data: teachers = [] } = useApi(() => apiService.users.getTeachers(), []);
+  const [filters, setFilters] = useState({ department: '', subject: '', search: '', page: 1, limit: 10 });
+  const { teachers, pagination, loading, error, reload } = useTeachers(filters);
 
-  const bookAppointment = (teacherId) => {
-    navigate(`${ROUTES.APPOINTMENTS}/${teacherId}`);
+  const onFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters((prev) => ({ ...prev, [name]: value, page: 1 }));
   };
 
-  const sendMessage = (teacherId) => {
-    navigate(`${ROUTES.MESSAGES}?teacher=${teacherId}`);
+  const onPageChange = (page) => {
+    setFilters((prev) => ({ ...prev, page }));
   };
 
-  let filteredTeachers = teachers;
-
-  if (searchTerm) {
-    filteredTeachers = filterBySearch(filteredTeachers, searchTerm, ['name', 'subject', 'department']);
-  }
-
-  if (selectedDepartment !== 'all') {
-    filteredTeachers = filteredTeachers.filter(teacher => teacher.department === selectedDepartment);
-  }
+  if (error) return <Layout><div className="text-red-500 p-6">Failed to load teachers.</div></Layout>;
 
   return (
-    <Layout headerTitle="Search Teachers" headerBackTo={ROUTES.DASHBOARD}>
-      <div className="p-6">
-        {/* Search and Filter */}
-        <motion.div className="mb-8 space-y-4" {...ANIMATIONS.fadeInUp}>
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <Input
-                placeholder="Search by name or subject..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                icon={<Search className="h-5 w-5" />}
-              />
-            </div>
+    <Layout headerTitle="Teachers">
+      <section className="max-w-5xl mx-auto p-6 text-white">
+        <h2 className="text-3xl mb-6 font-bold">Teachers</h2>
+        <div className="flex flex-wrap gap-4 mb-6">
+          <Select
+            name="department"
+            value={filters.department}
+            onChange={onFilterChange}
+            className="w-48"
+            options={[{ value: '', label: 'All Departments' }, ...DEPARTMENTS.map((d) => ({ value: d, label: d }))]}
+          />
+          <Input
+            name="subject"
+            value={filters.subject}
+            onChange={onFilterChange}
+            placeholder="Filter by Subject"
+            className="flex-grow min-w-[200px]"
+          />
+          <Input
+            name="search"
+            value={filters.search}
+            onChange={onFilterChange}
+            placeholder="Search by Name/Department/Subject"
+            className="flex-grow min-w-[200px]"
+          />
+        </div>
 
-            <div className="md:w-64">
-              <select
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent text-white"
-              >
-                <option value="all">All Departments</option>
-                {DEPARTMENTS.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Teachers Grid */}
-        <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" initial="initial" animate="animate" variants={ANIMATIONS.staggerChildren}>
-          {filteredTeachers.map((teacher, index) => (
-            <TeacherCard
-              key={teacher.id}
-              teacher={teacher}
-              onBook={bookAppointment}
-              onMessage={sendMessage}
-              index={index}
-            />
-          ))}
-        </motion.div>
-
-        {/* Empty State */}
-        {filteredTeachers.length === 0 && (
-          <motion.div className="text-center py-16" {...ANIMATIONS.fadeInUp}>
-            <div className="text-center">
-              <Search className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No teachers found</h3>
-              <p className="text-gray-400">
-                Try adjusting your search criteria or department filter.
-              </p>
-            </div>
-          </motion.div>
+        {loading ? (
+          <p>Loading...</p>
+        ) : teachers.length === 0 ? (
+          <p>No teachers found.</p>
+        ) : (
+          <ul className="space-y-4">
+            {teachers.map(({ _id, name, subject, department, availability, nextSlot }) => (
+              <li key={_id}>
+                <Card className="p-4 bg-gray-900 rounded shadow">
+                  <p className="text-xl font-semibold">{name}</p>
+                  <p>Subject: {subject}</p>
+                  <p>Department: {department}</p>
+                  <p>
+                    Availability: <Badge variant={availability === 'Available' ? 'success' : 'danger'}>{availability}</Badge>
+                  </p>
+                  <p>Next Slot: {nextSlot}</p>
+                </Card>
+              </li>
+            ))}
+          </ul>
         )}
-      </div>
+
+        {pagination.totalPages > 1 && (
+          <div className="flex justify-center mt-6 space-x-4">
+            <Button
+              variant="secondary"
+              disabled={filters.page <= 1}
+              onClick={() => onPageChange(filters.page - 1)}
+            >
+              Previous
+            </Button>
+            <span className="self-center">
+              Page {filters.page} of {pagination.totalPages}
+            </span>
+            <Button
+              variant="secondary"
+              disabled={filters.page >= pagination.totalPages}
+              onClick={() => onPageChange(filters.page + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        )}
+      </section>
     </Layout>
   );
 };

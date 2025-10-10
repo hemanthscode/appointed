@@ -1,6 +1,23 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ANIMATIONS } from '../../utils/animations';
+import { ANIMATIONS } from '../../utils';
+
+const variantClasses = {
+  primary: 'bg-white text-black hover:bg-gray-100',
+  secondary: 'border-2 border-white text-white hover:bg-white hover:text-black',
+  danger: 'bg-red-600 text-white hover:bg-red-700',
+  success: 'bg-green-600 text-white hover:bg-green-700',
+  info: 'bg-blue-600 text-white hover:bg-blue-700',
+  warning: 'bg-yellow-600 text-white hover:bg-yellow-700',
+  ghost: 'bg-transparent hover:bg-gray-800 text-gray-300 hover:text-white',
+  link: 'bg-transparent border-none p-0 hover:bg-transparent text-white hover:underline',
+};
+
+const sizeClasses = {
+  small: 'px-4 py-2 text-sm',
+  medium: 'px-6 py-3',
+  large: 'px-8 py-4 text-lg',
+};
 
 const Button = ({
   children,
@@ -15,36 +32,7 @@ const Button = ({
   fullWidth = false,
   ...props
 }) => {
-  const getVariantClass = (variant) => {
-    switch (variant) {
-      case 'primary':
-        return 'bg-white text-black hover:bg-gray-100';
-      case 'secondary':
-        return 'border-2 border-white text-white hover:bg-white hover:text-black';
-      case 'danger':
-        return 'bg-red-600 text-white hover:bg-red-700';
-      case 'success':
-        return 'bg-green-600 text-white hover:bg-green-700';
-      case 'info':
-        return 'bg-blue-600 text-white hover:bg-blue-700';
-      case 'warning':
-        return 'bg-yellow-600 text-white hover:bg-yellow-700';
-      case 'ghost':
-        return 'bg-transparent hover:bg-gray-800 text-gray-300 hover:text-white';
-      case 'link':
-        return 'bg-transparent border-none p-0 hover:bg-transparent text-white hover:underline';
-      default:
-        return 'bg-white text-black hover:bg-gray-100';
-    }
-  };
-
-  const sizeClasses = {
-    small: 'px-4 py-2 text-sm',
-    medium: 'px-6 py-3',
-    large: 'px-8 py-4 text-lg'
-  };
-
-  const baseClass = `font-bold rounded-lg transition-all duration-300 ${getVariantClass(variant)}`;
+  const baseClass = `font-bold rounded-lg transition-all duration-300 ${variantClasses[variant] || variantClasses.primary}`;
   const widthClass = fullWidth ? 'w-full' : '';
 
   return (

@@ -1,145 +1,115 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import {
-  Calendar,
-  Clock,
-  Plus,
-  User,
-  CheckCircle,
-  Edit
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/common';
-import { StatsCard } from '../components/cards';
-import { Card, Button, Badge } from '../components/ui';
-import { useApi } from '../hooks';
-import { apiService } from '../services';
-import { ROUTES, ANIMATIONS } from '../data';
+import { Card, Button, Select, Input } from '../components/ui';
+import scheduleService from '../services/scheduleService';
+import { useToast } from '../contexts/ToastContext';
+import useMetadata from '../hooks/useMetadata';
+import { useAuth } from '../contexts/AuthContext';
 
 const SchedulePage = () => {
-  const navigate = useNavigate();
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [viewType, setViewType] = useState('week');
+  const toast = useToast();
+  const { user } = useAuth();
+  const { timeSlots, loading: metaLoading } = useMetadata();
 
-  const { data: scheduleSlots = [] } = useApi(() => apiService.schedule.getSchedule({ date: selectedDate }), [selectedDate]);
+  const [schedule, setSchedule] = useState([]);
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
 
-  const getStatusVariant = (status) => {
-    switch (status) {
-      case 'available': return 'success';
-      case 'booked': return 'info';
-      case 'blocked': return 'danger';
-      default: return 'info';
+  const [blockDate, setBlockDate] = useState('');
+  const [blockTime, setBlockTime] = useState('');
+  const [blocking, setBlocking] = useState(false);
+
+  const loadSchedule = async () => {
+    if (!user) return;
+    setLoadingSchedule(true);
+    try {
+      const data = await scheduleService.getSchedule({ page: 1, limit: 20 });
+      setSchedule(data.schedule || []);
+    } catch {
+      toast.addToast('Failed to load your schedule.', 'error');
+    }
+    setLoadingSchedule(false);
+  };
+
+  useEffect(() => {
+    loadSchedule();
+  }, [user]);
+
+  const handleBlockSlot = async () => {
+    if (!blockDate || !blockTime) {
+      toast.addToast('Select date and time to block.', 'error');
+      return;
+    }
+    setBlocking(true);
+    try {
+      await scheduleService.blockSlot({ date: blockDate, time: blockTime });
+      toast.addToast('Slot blocked successfully.', 'success');
+      setBlockDate('');
+      setBlockTime('');
+      loadSchedule();
+    } catch {
+      toast.addToast('Failed to block slot.', 'error');
+    }
+    setBlocking(false);
+  };
+
+  const handleUnblockSlot = async (slotId) => {
+    try {
+      await scheduleService.unblockSlot(slotId);
+      toast.addToast('Slot unblocked.', 'success');
+      loadSchedule();
+    } catch {
+      toast.addToast('Failed to unblock slot.', 'error');
     }
   };
 
-  const stats = [
-    { label: 'Available Slots', value: scheduleSlots.filter(s => s.status === 'available').length, icon: CheckCircle, color: 'text-green-300' },
-    { label: 'Booked Slots', value: scheduleSlots.filter(s => s.status === 'booked').length, icon: Calendar, color: 'text-blue-300' },
-    { label: 'Pending Approval', value: scheduleSlots.filter(s => s.status === 'pending').length, icon: Clock, color: 'text-yellow-300' },
-    { label: 'Blocked Slots', value: scheduleSlots.filter(s => s.status === 'blocked').length, icon: Edit, color: 'text-red-300' }
-  ];
-
-  const headerActions = (
-    <Button icon={<Plus className="h-4 w-4" />}>
-      Add Time Slot
-    </Button>
-  );
-
   return (
-    <Layout headerTitle="My Schedule" headerBackTo={ROUTES.DASHBOARD} headerActions={headerActions}>
-      <div className="p-6">
-        {/* Controls */}
-        <motion.div
-          className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0"
-          {...ANIMATIONS.fadeInUp}
-        >
-          <div className="flex space-x-2">
-            <Button
-              variant={viewType === 'week' ? 'primary' : 'secondary'}
-              size="small"
-              onClick={() => setViewType('week')}
-            >
-              Week View
-            </Button>
-            <Button
-              variant={viewType === 'month' ? 'primary' : 'secondary'}
-              size="small"
-              onClick={() => setViewType('month')}
-            >
-              Month View
+    <Layout headerTitle="My Schedule">
+      <section className="max-w-5xl mx-auto p-6 text-white space-y-8">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold mb-4">Block a Time Slot</h2>
+          <div className="flex space-x-4 max-w-md">
+            <Input
+              type="date"
+              label="Date"
+              value={blockDate}
+              onChange={(e) => setBlockDate(e.target.value)}
+              disabled={blocking || metaLoading}
+            />
+            <Select
+              label="Time"
+              value={blockTime}
+              onChange={(e) => setBlockTime(e.target.value)}
+              options={[{ value: '', label: 'Select Time' }, ...timeSlots.map((t) => ({ value: t, label: t }))]}
+              disabled={blocking || metaLoading}
+            />
+            <Button variant="primary" onClick={handleBlockSlot} loading={blocking} disabled={blocking}>
+              Block
             </Button>
           </div>
+        </div>
 
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent text-white"
-          />
-        </motion.div>
-
-        {/* Schedule Grid */}
-        <motion.div {...ANIMATIONS.fadeInUp} style={{ transitionDelay: '0.2s' }}>
-          <Card className="mb-8">
-            <h3 className="text-xl font-bold mb-6">
-              Schedule for {new Date(selectedDate).toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {scheduleSlots.map((slot) => (
-                <motion.div
-                  key={slot.time}
-                  className="p-4 rounded-lg border-2 border-gray-700 transition-colors hover:border-gray-600"
-                  whileHover={{ scale: 1.02 }}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="h-4 w-4" />
-                      <span className="font-semibold">{slot.time}</span>
-                    </div>
-                    <Badge variant={getStatusVariant(slot.status)} size="small">{slot.status}</Badge>
-                  </div>
-
-                  {slot.student ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <User className="h-3 w-3" />
-                        <span className="text-sm">{slot.student}</span>
-                      </div>
-                      <p className="text-xs text-gray-300">{slot.purpose}</p>
-                      <div className="flex space-x-1">
-                        <Button size="small" className="flex-1 text-xs py-1">Approve</Button>
-                        <Button variant="danger" size="small" className="flex-1 text-xs py-1">Cancel</Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Button variant="secondary" size="small" className="w-full text-xs">Set Available</Button>
-                  )}
-                </motion.div>
+        <div>
+          <h2 className="text-2xl font-bold mb-4">Blocked Slots</h2>
+          {loadingSchedule ? (
+            <p>Loading schedule...</p>
+          ) : schedule.length === 0 ? (
+            <p>No blocked slots.</p>
+          ) : (
+            <ul className="space-y-4">
+              {schedule.map(({ id, date, time }) => (
+                <Card key={id} className="flex justify-between items-center p-4">
+                  <p>
+                    {date} at {time}
+                  </p>
+                  <Button variant="danger" size="small" onClick={() => handleUnblockSlot(id)}>
+                    Unblock
+                  </Button>
+                </Card>
               ))}
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Quick Stats */}
-        <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4" initial="initial" animate="animate" variants={ANIMATIONS.staggerChildren}>
-          {stats.map((stat, index) => (
-            <StatsCard
-              key={index}
-              label={stat.label}
-              value={stat.value}
-              icon={stat.icon}
-              color={stat.color}
-              index={index}
-            />
-          ))}
-        </motion.div>
-      </div>
+            </ul>
+          )}
+        </div>
+      </section>
     </Layout>
   );
 };

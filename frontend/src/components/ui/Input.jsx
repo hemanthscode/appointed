@@ -26,7 +26,6 @@ const Input = ({
           {required && <span className="text-red-400 ml-1">*</span>}
         </label>
       )}
-
       <div className="relative">
         <input
           id={inputId}
@@ -43,7 +42,6 @@ const Input = ({
           {...props}
         />
       </div>
-
       {error && <p className="text-red-400 text-sm">{error}</p>}
     </div>
   );

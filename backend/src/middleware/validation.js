@@ -7,7 +7,7 @@ const handleValidationErrors = (req, res, next) => {
     return res.status(400).json({
       success: false,
       message: 'Validation error',
-      errors: errors.array()
+      errors: errors.array(),
     });
   }
   next();
@@ -29,21 +29,26 @@ const validateRegister = [
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
   body('role')
-    .isIn(['student', 'teacher'])
-    .withMessage('Role must be either student or teacher'),
+    .isIn(['student', 'teacher', 'admin'])
+    .withMessage('Role must be either student, teacher, or admin'),
   body('department')
     .trim()
     .notEmpty()
     .withMessage('Department is required'),
+  // Conditionally require year for students
   body('year')
-    .optional()
-    .trim(),
+    .if(body('role').equals('student'))
+    .notEmpty()
+    .withMessage('Year is required for students'),
+  // Conditionally require subject for teachers
   body('subject')
-    .optional()
-    .trim(),
-  handleValidationErrors
+    .if(body('role').equals('teacher'))
+    .notEmpty()
+    .withMessage('Subject is required for teachers'),
+  handleValidationErrors,
 ];
 
+// Login validation
 const validateLogin = [
   body('email')
     .isEmail()
@@ -52,7 +57,7 @@ const validateLogin = [
   body('password')
     .notEmpty()
     .withMessage('Password is required'),
-  handleValidationErrors
+  handleValidationErrors,
 ];
 
 // Profile update validation

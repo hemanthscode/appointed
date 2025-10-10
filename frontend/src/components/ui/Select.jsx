@@ -26,7 +26,6 @@ const Select = ({
           {required && <span className="text-red-400 ml-1">*</span>}
         </label>
       )}
-
       <div className="relative">
         <select
           id={selectId}
@@ -42,16 +41,12 @@ const Select = ({
         >
           <option value="">{placeholder}</option>
           {options.map((option) => (
-            <option
-              key={typeof option === 'string' ? option : option.value}
-              value={typeof option === 'string' ? option : option.value}
-            >
+            <option key={typeof option === 'string' ? option : option.value} value={typeof option === 'string' ? option : option.value}>
               {typeof option === 'string' ? option : option.label}
             </option>
           ))}
         </select>
       </div>
-
       {error && <p className="text-red-400 text-sm">{error}</p>}
     </div>
   );
