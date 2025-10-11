@@ -1,30 +1,57 @@
 import { useState, useEffect } from 'react';
 import messageService from '../services/messageService';
 
-export default function useMessages(conversationId, filters = {}) {
-  const [messages, setMessages] = useState([]);
+export const useConversations = (params = {}) => {
+  const [conversations, setConversations] = useState([]);
+  const [pagination, setPagination] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState({});
 
-  const loadMessages = async () => {
-    if (!conversationId) return;
+  const fetchConversations = async (queryParams) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await messageService.getMessages(conversationId, filters);
-      setMessages(data.messages);
+      const data = await messageService.getConversations(queryParams);
+      setConversations(data.conversations);
       setPagination(data.pagination);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to load conversations');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadMessages();
-  }, [conversationId, JSON.stringify(filters)]);
+    fetchConversations(params);
+  }, [JSON.stringify(params)]);
 
-  return { messages, loading, error, pagination, reload: loadMessages };
-}
+  return { conversations, pagination, loading, error, refresh: () => fetchConversations(params) };
+};
+
+export const useMessages = (conversationId, params = {}) => {
+  const [messages, setMessages] = useState([]);
+  const [pagination, setPagination] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchMessages = async () => {
+    if (!conversationId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await messageService.getMessages(conversationId, params);
+      setMessages(data.messages);
+      setPagination(data.pagination);
+    } catch (err) {
+      setError(err.message || 'Failed to load messages');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMessages();
+  }, [conversationId, JSON.stringify(params)]);
+
+  return { messages, pagination, loading, error, refresh: fetchMessages };
+};

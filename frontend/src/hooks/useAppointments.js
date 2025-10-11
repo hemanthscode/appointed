@@ -1,29 +1,37 @@
 import { useState, useEffect } from 'react';
 import appointmentService from '../services/appointmentService';
 
-export default function useAppointments(filters = {}) {
+const useAppointments = (filters = {}) => {
   const [appointments, setAppointments] = useState([]);
   const [pagination, setPagination] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const loadAppointments = async () => {
+  const fetchAppointments = async (params) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await appointmentService.getAppointments(filters);
+      const data = await appointmentService.getAppointments(params);
       setAppointments(data.appointments);
       setPagination(data.pagination);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to load appointments');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadAppointments();
+    fetchAppointments(filters);
   }, [JSON.stringify(filters)]);
 
-  return { appointments, pagination, loading, error, reload: loadAppointments };
-}
+  return {
+    appointments,
+    pagination,
+    loading,
+    error,
+    refresh: () => fetchAppointments(filters),
+  };
+};
+
+export default useAppointments;

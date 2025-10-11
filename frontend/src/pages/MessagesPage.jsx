@@ -1,154 +1,110 @@
-import React, { useState, useEffect } from 'react';
-import { Layout } from '../components/common';
-import { Card, Button, Input } from '../components/ui';
-import { useToast } from '../contexts/ToastContext';
-import messageService from '../services/messageService';
+import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Card, Button, Badge, Modal } from '../components/ui';
+import { useConversations, useMessages } from '../hooks';
+import {messageService} from '../services';
+import {MessageForm} from '../components/forms';
+import { Layout } from '../components/common'
 
 const MessagesPage = () => {
-  const toast = useToast();
+  const { conversationId } = useParams();
+  const navigate = useNavigate();
+  const { conversations, loading: convLoading, error: convError, refresh: refreshConversations } = useConversations();
+  const { messages, loading: msgLoading, error: msgError, refresh: refreshMessages } = useMessages(conversationId);
 
-  const [conversations, setConversations] = useState([]);
-  const [loadingConversations, setLoadingConversations] = useState(false);
-  const [selectedConversationId, setSelectedConversationId] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [loadingMessages, setLoadingMessages] = useState(false);
-  const [messageInput, setMessageInput] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Load conversations
-  const fetchConversations = async () => {
-    setLoadingConversations(true);
-    try {
-      const data = await messageService.getConversations({ page: 1, limit: 20 });
-      setConversations(data.conversations);
-      if (data.conversations.length > 0 && !selectedConversationId) setSelectedConversationId(data.conversations[0]._id);
-    } catch {
-      toast.addToast('Failed to load conversations.', 'error');
-    }
-    setLoadingConversations(false);
+  const openModal = (conv) => {
+    setSelectedConversation(conv);
+    setModalOpen(true);
   };
 
-  // Load selected conversation messages
-  const fetchMessages = async (conversationId) => {
-    if (!conversationId) return;
-    setLoadingMessages(true);
-    try {
-      const data = await messageService.getMessages(conversationId, { page: 1, limit: 50 });
-      setMessages(data.messages);
-    } catch {
-      toast.addToast('Failed to load messages.', 'error');
-    }
-    setLoadingMessages(false);
+  const closeModal = () => {
+    setSelectedConversation(null);
+    setModalOpen(false);
+    setError(null);
   };
 
-  useEffect(() => {
-    fetchConversations();
-  }, []);
-
-  useEffect(() => {
-    fetchMessages(selectedConversationId);
-  }, [selectedConversationId]);
-
-  // Send message
-  const handleSendMessage = async () => {
-    if (!messageInput.trim()) return;
+  const sendMessage = async ({ content, files }) => {
+    setActionLoading(true);
+    setError(null);
     try {
       const formData = new FormData();
-      formData.append('conversationId', selectedConversationId);
-      formData.append('text', messageInput.trim());
+      formData.append('content', content);
+      formData.append('receiver', selectedConversation.otherUser._id);
+      files.forEach(file => formData.append('files', file));
       await messageService.sendMessage(formData);
-      setMessageInput('');
-      fetchMessages(selectedConversationId);
-    } catch {
-      toast.addToast('Failed to send message.', 'error');
+      refreshMessages();
+      refreshConversations();
+    } catch (err) {
+      setError(err.message || 'Failed to send message');
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  // Search messages
-  const handleSearch = async (e) => {
-    const value = e.target.value;
-    setSearchTerm(value);
-    if (!value.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    setSearchLoading(true);
+  const handleDeleteConversation = async (id) => {
+    setActionLoading(true);
+    setError(null);
     try {
-      const data = await messageService.searchMessages({ query: value.trim(), page: 1, limit: 10 });
-      setSearchResults(data.messages || []);
-    } catch {
-      setSearchResults([]);
+      await messageService.deleteConversation(id);
+      refreshConversations();
+      if (conversationId === id) {
+        navigate('/messages');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to delete conversation');
+    } finally {
+      setActionLoading(false);
     }
-    setSearchLoading(false);
   };
 
   return (
-    <Layout headerTitle="Messages">
-      <section className="max-w-7xl mx-auto p-6 flex space-x-6 text-white">
-        <aside className="w-1/3">
-          <Input
-            placeholder="Search Messages"
-            value={searchTerm}
-            onChange={handleSearch}
-            className="mb-4"
-            disabled={searchLoading}
-          />
-          {loadingConversations ? (
-            <p>Loading conversations...</p>
-          ) : (
-            <ul className="space-y-2 overflow-auto max-h-[75vh]">
-              {(searchTerm && searchResults.length > 0 ? searchResults : conversations).map((conv) => (
-                <li
-                  key={conv._id}
-                  className={`p-3 rounded cursor-pointer ${
-                    conv._id === selectedConversationId ? 'bg-gray-700' : 'hover:bg-gray-800'
-                  }`}
-                  onClick={() => setSelectedConversationId(conv._id)}
-                  aria-label={`Conversation with ${conv.name || 'User'}`}
-                >
-                  <p className="font-semibold">{conv.name || conv.participants?.join(', ') || 'Conversation'}</p>
-                  <p className="text-sm text-gray-400">{conv.lastMessageSnippet || 'No messages yet'}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </aside>
+    <Layout>
+      <div className="max-w-6xl mx-auto p-4 flex flex-col md:flex-row gap-6">
+        <div className="md:w-1/3 overflow-auto max-h-[80vh] border-r border-gray-700 pr-4">
+          <Button onClick={() => navigate('/messages')} className="mb-4" variant="secondary" fullWidth>All Conversations</Button>
+          {convLoading && <p>Loading conversations...</p>}
+          {convError && <p className="text-red-500">{convError}</p>}
+          {conversations.map(conv => {
+            const otherUser = conv.participants.find(p => p._id !== selectedConversation?.otherUser?._id);
+            return (
+              <Card key={conv._id} className={`cursor-pointer mb-3 ${conv._id === conversationId ? 'bg-gray-800' : ''}`}>
+                <div onClick={() => navigate(`/messages/${conv._id}`)}>
+                  <div className="flex justify-between items-center">
+                    <div>{otherUser?.name || 'Unknown User'}</div>
+                    {conv.unreadCount > 0 && <Badge variant="danger">{conv.unreadCount}</Badge>}
+                  </div>
+                  <div className="text-sm text-gray-300 truncate">{conv.lastMessage?.content || 'No messages yet'}</div>
+                </div>
+                <Button size="small" variant="danger" onClick={() => handleDeleteConversation(conv._id)} disabled={actionLoading}>Delete</Button>
+              </Card>
+            );
+          })}
+        </div>
 
-        <main className="w-2/3 flex flex-col h-[75vh] bg-gray-900 rounded p-4">
-          {loadingMessages ? (
-            <p>Loading messages...</p>
-          ) : !selectedConversationId ? (
-            <p>Select a conversation</p>
+        <div className="md:w-2/3 flex flex-col">
+          {!conversationId ? (
+            <p className="text-center text-gray-500">Select a conversation to view messages.</p>
           ) : (
             <>
-              <ul className="flex-grow overflow-y-auto space-y-3 mb-4">
-                {messages.map(({ _id, text, senderName, createdAt }) => (
-                  <li key={_id} className="p-2 rounded bg-gray-800">
-                    <p className="font-semibold">{senderName}</p>
-                    <p>{text}</p>
-                    <small className="text-gray-400">{new Date(createdAt).toLocaleString()}</small>
-                  </li>
+              <div className="overflow-auto max-h-[70vh] mb-4">
+                {msgLoading && <p>Loading messages...</p>}
+                {msgError && <p className="text-red-500">{msgError}</p>}
+                {messages.map(msg => (
+                  <div key={msg._id} className={`p-2 rounded mb-2 max-w-[70%] ${msg.sender._id === selectedConversation?.otherUser?._id ? 'bg-gray-700 self-start' : 'bg-blue-600 self-end text-white'}`}>
+                    <p>{msg.content}</p>
+                  </div>
                 ))}
-              </ul>
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  className="flex-grow p-3 rounded bg-gray-700 text-white outline-none"
-                  placeholder="Type your message..."
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                />
-                <Button variant="primary" onClick={handleSendMessage}>
-                  Send
-                </Button>
               </div>
+              <MessageForm onSubmit={sendMessage} loading={actionLoading} />
             </>
           )}
-        </main>
-      </section>
+        </div>
+      </div>
     </Layout>
   );
 };

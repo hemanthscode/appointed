@@ -1,29 +1,31 @@
 import { useState, useEffect } from 'react';
 import userService from '../services/userService';
 
-export default function useTeachers(filters) {
+const useTeachers = (filters = { page: 1, limit: 10 }) => {
   const [teachers, setTeachers] = useState([]);
-  const [pagination, setPagination] = useState({});
   const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({});
   const [error, setError] = useState(null);
 
-  const loadTeachers = async () => {
+  const loadTeachers = async (params) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await userService.getTeachers(filters);
+      const data = await userService.getTeachers(params);
       setTeachers(data.teachers);
       setPagination(data.pagination);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to load teachers');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadTeachers();
+    loadTeachers(filters);
   }, [JSON.stringify(filters)]);
 
-  return { teachers, pagination, loading, error, reload: loadTeachers };
-}
+  return { teachers, loading, pagination, error, reload: () => loadTeachers(filters) };
+};
+
+export default useTeachers;

@@ -62,3 +62,17 @@ export const USER_YEARS = [
   'Third Year',
   'Fourth Year',
 ];
+export const PURPOSES = [
+  { value: 'academic-help', label: 'Academic Help' },
+  { value: 'project-discussion', label: 'Project Discussion' },
+  { value: 'career-guidance', label: 'Career Guidance' },
+  { value: 'exam-preparation', label: 'Exam Preparation' },
+  { value: 'research-guidance', label: 'Research Guidance' },
+  { value: 'other', label: 'Other' },
+];
+
+export const SLOT_STATUS_OPTIONS = [
+  { value: 'available', label: 'Available' },
+  { value: 'blocked', label: 'Blocked' },
+  { value: 'unavailable', label: 'Unavailable' },
+];

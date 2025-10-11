@@ -1,33 +1,40 @@
 import apiService from './apiService';
 
-export const getConversations = (params) => apiService.request('/messages/conversations', { method: 'GET', params });
-export const getUnreadCount = () => apiService.request('/messages/unread-count', { method: 'GET' });
-export const searchMessages = (params) => apiService.request('/messages/search', { method: 'GET', params });
+const getConversations = (params) => apiService.request(`/messages/conversations?${new URLSearchParams(params).toString()}`);
 
-export const getMessages = (conversationId, params) =>
-  apiService.request(`/messages/${conversationId}`, { method: 'GET', params });
-export const deleteConversation = (conversationId) => apiService.request(`/messages/${conversationId}`, { method: 'DELETE' });
+const getUnreadCount = () => apiService.request('/messages/unread-count');
 
-export const markAsRead = (conversationId) => apiService.request(`/messages/${conversationId}/read`, { method: 'PATCH' });
+const searchMessages = (params) => apiService.request(`/messages/search?${new URLSearchParams(params).toString()}`);
 
-// Send message supports file attachments, handled in apiService accordingly
-export const sendMessage = (formData) => {
-  const token = localStorage.getItem('token');
-  return fetch(`${apiService.appConfig.apiBaseUrl}/api/messages/send`, {
+const getMessages = (conversationId, params) =>
+  apiService.request(`/messages/${conversationId}?${new URLSearchParams(params).toString()}`);
+
+const sendMessage = (data) => {
+  const formData = new FormData();
+  if (data.content) formData.append('content', data.content);
+  if (data.receiver) formData.append('receiver', data.receiver);
+  if (data.files) {
+    data.files.forEach((file) => formData.append('files', file));
+  }
+  return apiService.request('/messages/send', {
     method: 'POST',
-    headers: {
-      Authorization: token ? `Bearer ${token}` : '',
-    },
     body: formData,
-  }).then((res) => res.json());
+    headers: { 'Content-Type': undefined }, // browser sets automatically for FormData
+  });
 };
+
+const markAsRead = (conversationId) =>
+  apiService.request(`/messages/${conversationId}/read`, { method: 'PATCH' });
+
+const deleteConversation = (conversationId) =>
+  apiService.request(`/messages/${conversationId}`, { method: 'DELETE' });
 
 export default {
   getConversations,
   getUnreadCount,
   searchMessages,
   getMessages,
-  deleteConversation,
-  markAsRead,
   sendMessage,
+  markAsRead,
+  deleteConversation,
 };

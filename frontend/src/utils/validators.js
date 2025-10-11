@@ -73,3 +73,53 @@ export const validateRegisterForm = (data) => {
 
   return validateForm(data, baseRules);
 };
+
+export const validateAppointment = (data) => {
+  const errors = {};
+  if (!data.teacher) errors.teacher = 'Teacher is required';
+  if (!data.date || isNaN(new Date(data.date).getTime()))
+    errors.date = 'Valid date is required';
+  if (!data.time || !/^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM)$/i.test(data.time))
+    errors.time = 'Valid time is required';
+  const validPurposes = [
+    'academic-help',
+    'project-discussion',
+    'career-guidance',
+    'exam-preparation',
+    'research-guidance',
+    'other',
+  ];
+  if (!validPurposes.includes(data.purpose)) errors.purpose = 'Valid purpose is required';
+  if (data.message && data.message.length > 500)
+    errors.message = 'Message cannot exceed 500 characters';
+  return { isValid: Object.keys(errors).length === 0, errors };
+};
+
+export const validateScheduleSlot = (data) => {
+  const errors = {};
+  if (!data.date || isNaN(new Date(data.date).getTime())) {
+    errors.date = 'Valid date is required';
+  }
+  if (!data.time || !/^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM)?$/i.test(data.time)) {
+    errors.time = 'Valid time required (e.g., 2:00 PM)';
+  }
+  if (data.status && !['available', 'blocked', 'unavailable'].includes(data.status)) {
+    errors.status = 'Invalid status';
+  }
+  if (data.status === 'blocked' && (!data.blockReason || data.blockReason.trim() === '')) {
+    errors.blockReason = 'Block reason is required when status is blocked';
+  } else if (data.blockReason && data.blockReason.length > 100) {
+    errors.blockReason = 'Block reason must be under 100 characters';
+  }
+  return { isValid: Object.keys(errors).length === 0, errors };
+};
+export const validateMessage = ({ content }) => {
+  const errors = {};
+  if (!content || content.trim() === '') {
+    errors.content = 'Message cannot be empty';
+  } else if (content.length > 2000) {
+    errors.content = 'Message cannot exceed 2000 characters';
+  }
+  const isValid = Object.keys(errors).length === 0;
+  return { isValid, errors };
+};

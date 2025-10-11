@@ -1,110 +1,70 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { Card, Button, Badge } from '../ui';
-import { ANIMATIONS, APPOINTMENT_STATUS, getStatusVariant, formatDate } from '../../utils';
-import { useAuth } from '../../contexts/AuthContext';
+import { Card, Badge, Button } from '../ui';
 
-const statusIcons = {
-  [APPOINTMENT_STATUS.CONFIRMED]: CheckCircle,
-  [APPOINTMENT_STATUS.PENDING]: AlertCircle,
-  [APPOINTMENT_STATUS.COMPLETED]: CheckCircle,
-  [APPOINTMENT_STATUS.REJECTED]: XCircle,
-};
-
-const AppointmentCard = ({ appointment, onAction, userRole = 'student', index = 0 }) => {
-  const { user } = useAuth();
-  const StatusIcon = statusIcons[appointment.status] || Clock;
-  const statusVariant = getStatusVariant(appointment.status);
+const AppointmentCard = ({
+  appointment,
+  onApprove,
+  onReject,
+  onCancel,
+  onComplete,
+  onRate,
+  userRole,
+}) => {
+  const {
+    purpose,
+    formattedDate,
+    time,
+    status,
+    teacher,
+    student,
+  } = appointment;
 
   return (
-    <motion.div
-      initial={ANIMATIONS.fadeInUp.initial}
-      animate={ANIMATIONS.fadeInUp.animate}
-      transition={{ ...ANIMATIONS.fadeInUp.transition, delay: index * 0.1 }}
-    >
-      <Card hoverable className="h-80 flex flex-col justify-between">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center">
-              <User className="h-6 w-6" />
-            </div>
-            <div>
-              <h3 className="font-semibold">
-                {userRole === 'student'
-                  ? appointment.teacher?.name ?? "Unknown Teacher"
-                  : appointment.student?.name ?? "Unknown Student"}
-              </h3>
-              <p className="text-sm">{appointment.subject}</p>
-            </div>
-          </div>
-          <Badge variant={statusVariant} icon={<StatusIcon className="h-3 w-3" />} size="small">
-            {appointment.status}
+    <Card className="mb-4 p-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <div>
+          <h3 className="font-semibold text-lg">{purpose.replace(/-/g, ' ').toUpperCase()}</h3>
+          <div className="text-gray-400 text-sm">{formattedDate} &bull; {time}</div>
+          <div className="text-gray-300 text-sm">Teacher: {teacher?.name || 'Unknown'}</div>
+          <div className="text-gray-300 text-sm">Student: {student?.name || 'Unknown'}</div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mt-3 sm:mt-0 items-center">
+          <Badge
+            variant={
+              status === 'confirmed'
+                ? 'success'
+                : status === 'completed'
+                ? 'primary'
+                : status === 'cancelled'
+                ? 'danger'
+                : status === 'rejected'
+                ? 'warning'
+                : 'secondary'
+            }
+            size="medium"
+          >
+            {status.charAt(0).toUpperCase() + status.slice(1)}
           </Badge>
-        </div>
 
-        {/* Details */}
-        <div className="space-y-3 mb-4">
-          <div className="flex items-center space-x-2 text-sm">
-            <Calendar className="text-gray-400 h-4 w-4" />
-            <span>{formatDate(appointment.date, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm">
-            <Clock className="text-gray-400 h-4 w-4" />
-            <span>{appointment.time}</span>
-          </div>
-          <div className="text-sm">
-            <span className="text-gray-400">Purpose: </span>
-            <span>{appointment.purpose}</span>
-          </div>
-        </div>
-
-        {/* Message */}
-        {appointment.message && (
-          <div className="mb-4">
-            <p className="text-sm text-gray-300 bg-gray-800/50 p-3 rounded-lg line-clamp-2">
-              &quot;{appointment.message}&quot;
-            </p>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-2">
-          {appointment.status === APPOINTMENT_STATUS.PENDING && (
+          {/* Role-based buttons */}
+          {userRole === 'teacher' && status === 'pending' && (
             <>
-              <Button
-                variant="danger"
-                size="small"
-                onClick={() => onAction("cancel", appointment.id)}
-                className="flex-1 text-sm"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="secondary"
-                size="small"
-                onClick={() => onAction("reschedule", appointment.id)}
-                className="flex-1 text-sm"
-              >
-                Reschedule
-              </Button>
+              <Button size="small" variant="success" onClick={() => onApprove(appointment._id)}>Approve</Button>
+              <Button size="small" variant="danger" onClick={() => onReject(appointment._id)}>Reject</Button>
             </>
           )}
 
-          {appointment.status === APPOINTMENT_STATUS.CONFIRMED && (
-            <Button
-              variant="primary"
-              size="small"
-              onClick={() => onAction("join", appointment.id)}
-              className="w-full text-sm"
-            >
-              Join Meeting
-            </Button>
+          {(userRole === 'teacher' || userRole === 'student') && status === 'confirmed' && (
+            <>
+              <Button size="small" variant="warning" onClick={() => onCancel(appointment._id)}>Cancel</Button>
+              {userRole === 'teacher' && <Button size="small" variant="info" onClick={() => onComplete(appointment._id)}>Complete</Button>}
+              {userRole === 'student' && <Button size="small" variant="primary" onClick={() => onRate(appointment._id)}>Rate</Button>}
+            </>
           )}
         </div>
-      </Card>
-    </motion.div>
+      </div>
+    </Card>
   );
 };
 

@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import userService from '../services/userService';
 import { DEPARTMENTS, USER_YEARS } from '../utils';
-import Pagination from '../components/user/Pagination';
-import { Button, Select, Input, Card } from '../components/ui';
+import { Button, Select, Input, Card, Pagination } from '../components/ui';
 
 const StudentsList = () => {
   const [students, setStudents] = useState([]);

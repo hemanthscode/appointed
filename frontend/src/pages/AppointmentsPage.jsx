@@ -1,126 +1,122 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Calendar } from 'lucide-react';
 import { Layout } from '../components/common';
-import { AppointmentCard } from '../components/cards';
-import { Button } from '../components/ui';
-import { useApi } from '../hooks';
-import { appointmentService } from '../services';
-import { ROUTES, ANIMATIONS } from '../utils';
+import AppointmentCard from '../components/cards/AppointmentCard';
+import AppointmentForm from '../components/forms/AppointmentForm';
+import { Card, Modal, Pagination } from '../components/ui';
+import useAppointments from '../hooks/useAppointments';
+import useAuth from '../hooks/useAuth';
+import appointmentService from '../services/appointmentService';
 
 const AppointmentsPage = () => {
-  const navigate = useNavigate();
-  const [filterStatus, setFilterStatus] = useState('all');
+  const { appointments, pagination, loading, error, refresh } = useAppointments();
+  const { user } = useAuth();
+  const userRole = user?.role || null;
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState(null);
 
-  // Fetch appointments and pagination from API response data object
-  const { data, reload } = useApi(() => appointmentService.getAppointments(), []);
+  const openCreateModal = () => {
+    setSelectedAppointment(null);
+    setCreateModalOpen(true);
+    setEditModalOpen(false);
+  };
 
-  // Defensive extract
-  const appointments = (data && Array.isArray(data.appointments)) ? data.appointments : [];
-  const pagination = (data && data.pagination) ? data.pagination : {};
+  const openEditModal = (appointment) => {
+    setSelectedAppointment(appointment);
+    setEditModalOpen(true);
+    setCreateModalOpen(false);
+  };
 
-  const handleAppointmentAction = async (action, appointmentId) => {
+  const closeModals = () => {
+    setEditModalOpen(false);
+    setCreateModalOpen(false);
+    setSelectedAppointment(null);
+  };
+
+  const handleSubmit = async (data) => {
+    setActionError(null);
+    setActionLoading(true);
     try {
-      switch (action) {
-        case 'cancel':
-          await appointmentService.cancelAppointment(appointmentId);
-          break;
-        case 'reschedule':
-          // Implement reschedule logic
-          break;
-        case 'join':
-          // Implement join logic
-          break;
-        default:
-          break;
+      if (selectedAppointment) {
+        await appointmentService.updateAppointment(selectedAppointment._id, data);
+      } else {
+        await appointmentService.createAppointment(data);
       }
-      await reload(); // Reload appointments after action
-    } catch (error) {
-      console.error(`${action} appointment error:`, error);
+      await refresh();
+      closeModals();
+    } catch (e) {
+      setActionError(e.message);
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const filteredAppointments = appointments.filter(
-    (apt) => filterStatus === 'all' || apt.status === filterStatus
-  );
-
-  const headerActions = (
-    <Button onClick={() => navigate(ROUTES.TEACHERS)} icon={<Plus className="h-4 w-4" />}>
-      Book New
-    </Button>
-  );
+  const handleAction = async (id, actionFn) => {
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await actionFn(id);
+      await refresh();
+    } catch (e) {
+      setActionError(e.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   return (
-    <Layout headerTitle="My Appointments" headerBackTo={ROUTES.DASHBOARD} headerActions={headerActions}>
-      <div className="p-6">
-        <motion.div className="mb-6" {...ANIMATIONS.fadeInUp}>
-          <div className="flex space-x-2 bg-gray-900/50 p-1 rounded-lg inline-flex">
-            {['all', 'pending', 'confirmed', 'completed', 'rejected'].map((status) => (
-              <button
-                key={status}
-                onClick={() => setFilterStatus(status)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-                  filterStatus === status ? 'bg-white text-black' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
-        </motion.div>
+    <Layout>
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Appointments</h1>
+          <button onClick={openCreateModal} className="btn btn-primary">
+            New Appointment
+          </button>
+        </div>
 
-        <motion.div
-          className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6"
-          initial="initial"
-          animate="animate"
-          variants={ANIMATIONS.staggerChildren}
-        >
-          {filteredAppointments.map((appointment, index) => (
+        {error && <div className="text-red-600">{error}</div>}
+        {actionError && <div className="text-red-600">{actionError}</div>}
+
+        {loading ? (
+          <div className="text-center text-gray-500 py-20">Loading...</div>
+        ) : appointments.length === 0 ? (
+          <p className="text-gray-500 text-center italic">No appointments found.</p>
+        ) : (
+          appointments.map((appt) => (
             <AppointmentCard
-              key={appointment.id || appointment._id}
-              appointment={appointment}
-              onAction={handleAppointmentAction}
-              userRole="student"
-              index={index}
+              key={appt._id}
+              appointment={appt}
+              userRole={userRole}
+              onApprove={(id) => handleAction(id, appointmentService.approveAppointment)}
+              onReject={(id) => handleAction(id, appointmentService.rejectAppointment)}
+              onCancel={(id) => handleAction(id, appointmentService.cancelAppointment)}
+              onComplete={(id) => handleAction(id, appointmentService.completeAppointment)}
+              onRate={(id) => handleAction(id, appointmentService.rateAppointment)}
             />
-          ))}
-        </motion.div>
-
-        {filteredAppointments.length === 0 && (
-          <motion.div className="text-center py-16" {...ANIMATIONS.fadeInUp}>
-            <Calendar className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No appointments found</h3>
-            <p className="text-gray-400 mb-6">
-              {filterStatus === 'all'
-                ? "You haven't booked any appointments yet."
-                : `No ${filterStatus} appointments found.`}
-            </p>
-            <Button onClick={() => navigate(ROUTES.TEACHERS)}>Book Your First Appointment</Button>
-          </motion.div>
+          ))
         )}
 
-        {pagination.totalPages > 1 && (
-          <div className="flex justify-center mt-6 space-x-4">
-            <Button
-              variant="secondary"
-              disabled={pagination.page <= 1}
-              onClick={() => setFilterStatus((prev) => Math.max(prev - 1, 1))}
-            >
-              Previous
-            </Button>
-            <span className="self-center">
-              Page {pagination.page || 1} of {pagination.totalPages || 1}
-            </span>
-            <Button
-              variant="secondary"
-              disabled={pagination.page >= pagination.totalPages}
-              onClick={() => setFilterStatus((prev) => Math.min(prev + 1, pagination.totalPages))}
-            >
-              Next
-            </Button>
-          </div>
-        )}
+        <Pagination pagination={pagination} onChange={(page) => refresh({ ...pagination, page })} />
+
+        {/* Create/Edit Appointment Modal */}
+        <Modal
+          isOpen={createModalOpen || editModalOpen}
+          onClose={closeModals}
+          title={selectedAppointment ? 'Edit Appointment' : 'New Appointment'}
+          size="medium"
+          showCloseButton
+        >
+          <AppointmentForm
+            initialData={selectedAppointment}
+            onSubmit={handleSubmit}
+            loading={actionLoading}
+            onCancel={closeModals}
+            // You might want to pass a list of teachers fetched elsewhere or from context
+            teachers={[]} 
+          />
+        </Modal>
       </div>
     </Layout>
   );

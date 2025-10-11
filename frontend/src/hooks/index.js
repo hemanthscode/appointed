@@ -1,7 +1,7 @@
 export { default as useAdminUser } from './useAdminUsers';
 export { default as useAppointments } from './useAppointments';
 export { default as useAuth } from './useAuth';
-export { default as useMessages } from './useMessages';
+export { useMessages, useConversations } from './useMessages';
 export { default as useMetadata } from './useMetadata';
 export { default as useProfile } from './useProfile';
 export { default as useSchedule } from './useSchedule';

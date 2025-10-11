@@ -1,120 +1,119 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Layout } from '../components/common';
-import { Card, Button, Select, Input, Textarea } from '../components/ui';
-import useMetadata from '../hooks/useMetadata';
-import appointmentService from '../services/appointmentService';
-import { useToast } from '../contexts/ToastContext';
+import { AppointmentCard } from '../components/cards';
+import { AppointmentForm } from '../components/forms';
+import { Card, Modal, Pagination, Button } from '../components/ui';
+
+import {useAuth, useAppointments} from '../hooks';
+import { appointmentService } from '../services';
 
 const AppointmentPage = () => {
-  const toast = useToast();
-  const { departments, subjects, timeSlots, appointmentPurposes, fetchSubjectsByDepartment, loading: loadingMeta } = useMetadata();
+  const { appointments, pagination, loading, error, refresh } = useAppointments();
+  const { user } = useAuth();
+  const userRole = user?.role || null;
 
-  const [formData, setFormData] = useState({
-    department: '',
-    subject: '',
-    date: '',
-    time: '',
-    purpose: '',
-    message: '',
-  });
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState(null);
 
-  const [loading, setLoading] = useState(false);
-  const [subjectOptions, setSubjectOptions] = useState([]);
-
-  useEffect(() => {
-    if (formData.department) {
-      fetchSubjectsByDepartment(formData.department).then(setSubjectOptions);
-    } else {
-      setSubjectOptions([]);
-    }
-  }, [formData.department]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  const openCreateModal = () => {
+    setSelectedAppointment(null);
+    setModalOpen(true);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  const openEditModal = appointment => {
+    setSelectedAppointment(appointment);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setSelectedAppointment(null);
+    setModalOpen(false);
+  };
+
+  const handleSubmit = async data => {
+    setActionError(null);
+    setActionLoading(true);
     try {
-      await appointmentService.createAppointment(formData);
-      toast.addToast('Appointment created successfully.', 'success');
-      setFormData({
-        department: '',
-        subject: '',
-        date: '',
-        time: '',
-        purpose: '',
-        message: '',
-      });
-    } catch (error) {
-      toast.addToast(error.message || 'Failed to create appointment.', 'error');
+      if (selectedAppointment) {
+        await appointmentService.updateAppointment(selectedAppointment._id, data);
+      } else {
+        await appointmentService.createAppointment(data);
+      }
+      await refresh();
+      closeModal();
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setActionLoading(false);
     }
-    setLoading(false);
+  };
+
+  const handleAction = async (id, actionFn) => {
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await actionFn(id);
+      await refresh();
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
-    <Layout headerTitle="Create Appointment">
-      <section className="max-w-md mx-auto p-6 bg-black rounded-md text-white">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Select
-            label="Department"
-            name="department"
-            value={formData.department}
-            onChange={handleChange}
-            options={[{ value: '', label: 'Select Department' }, ...departments.map((d) => ({ value: d, label: d }))]}
-            required
-            disabled={loadingMeta}
+    <Layout>
+      <div className="max-w-6xl mx-auto p-4 space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Appointments</h1>
+          <Button onClick={openCreateModal} variant="primary">New Appointment</Button>
+        </div>
+
+        {error && <div className="text-red-600">{error}</div>}
+        {actionError && <div className="text-red-600">{actionError}</div>}
+
+        {loading ? (
+          <div className="text-center text-gray-500 my-12">Loading appointments...</div>
+        ) : appointments.length === 0 ? (
+          <p className="text-center text-gray-500 italic">No appointments found.</p>
+        ) : (
+          appointments.map(appt => (
+            <AppointmentCard
+              key={appt._id}
+              appointment={appt}
+              userRole={userRole}
+              onApprove={id => handleAction(id, appointmentService.approveAppointment)}
+              onReject={id => handleAction(id, appointmentService.rejectAppointment)}
+              onCancel={id => handleAction(id, appointmentService.cancelAppointment)}
+              onComplete={id => handleAction(id, appointmentService.completeAppointment)}
+              onRate={id => handleAction(id, appointmentService.rateAppointment)}
+            />
+          ))
+        )}
+
+        <Pagination
+          pagination={pagination}
+          onChange={page => refresh({ ...pagination, page })}
+        />
+
+        <Modal
+          isOpen={modalOpen}
+          onClose={closeModal}
+          title={selectedAppointment ? 'Edit Appointment' : 'New Appointment'}
+          size="medium"
+          showCloseButton
+        >
+          <AppointmentForm
+            initialData={selectedAppointment}
+            teachers={[]} // Populate based on your app data, via context or prop
+            onSubmit={handleSubmit}
+            loading={actionLoading}
+            onCancel={closeModal}
           />
-          <Select
-            label="Subject"
-            name="subject"
-            value={formData.subject}
-            onChange={handleChange}
-            options={[{ value: '', label: 'Select Subject' }, ...subjectOptions.map((s) => ({ value: s, label: s }))]}
-            required
-            disabled={loadingMeta || !formData.department}
-          />
-          <Input
-            label="Date"
-            type="date"
-            name="date"
-            value={formData.date}
-            onChange={handleChange}
-            required
-          />
-          <Select
-            label="Time"
-            name="time"
-            value={formData.time}
-            onChange={handleChange}
-            options={[{ value: '', label: 'Select Time Slot' }, ...timeSlots.map((t) => ({ value: t, label: t }))]}
-            required
-            disabled={loadingMeta}
-          />
-          <Select
-            label="Purpose"
-            name="purpose"
-            value={formData.purpose}
-            onChange={handleChange}
-            options={[{ value: '', label: 'Select Purpose' }, ...appointmentPurposes.map((p) => ({ value: p.value, label: p.label }))]}
-            required
-            disabled={loadingMeta}
-          />
-          <Textarea
-            label="Additional Message"
-            name="message"
-            value={formData.message}
-            onChange={handleChange}
-            placeholder="Enter any additional details (optional)"
-            rows={3}
-          />
-          <Button type="submit" variant="primary" fullWidth loading={loading} disabled={loading}>
-            Create Appointment
-          </Button>
-        </form>
-      </section>
+        </Modal>
+      </div>
     </Layout>
   );
 };
