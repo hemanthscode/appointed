@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, User, Mail, Lock, Shield } from 'lucide-react';
-import { Button, Input, Select } from '../ui';
+import { Input, Select, Button } from '../ui';
 import { validateRegisterForm } from '../../utils/validators';
-import { DEPARTMENTS, USER_YEARS } from '../../utils'
+import { DEPARTMENTS, USER_YEARS } from '../../utils/constants';
+import { useSubjects } from '../../hooks/useMetadata';
 
 const RegisterForm = ({ onSubmit, loading = false }) => {
   const [formData, setFormData] = useState({
@@ -18,24 +18,27 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
   const [errors, setErrors] = useState({});
   const [serverErrors, setServerErrors] = useState({});
 
+  // Load subjects for selected department
+  const { subjects, loading: subjectsLoading } = useSubjects(formData.department);
+
   useEffect(() => {
     if (formData.role === 'student') {
-      setFormData((prev) => ({ ...prev, subject: '' }));
+      setFormData(prev => ({ ...prev, subject: '' }));
     } else if (formData.role === 'teacher') {
-      setFormData((prev) => ({ ...prev, year: '' }));
+      setFormData(prev => ({ ...prev, year: '' }));
     } else {
-      setFormData((prev) => ({ ...prev, year: '', subject: '' }));
+      setFormData(prev => ({ ...prev, year: '', subject: '' }));
     }
   }, [formData.role]);
 
-  const handleInputChange = (e) => {
+  const handleInputChange = e => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: null }));
-    if (serverErrors[name]) setServerErrors((prev) => ({ ...prev, [name]: null }));
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
+    if (serverErrors[name]) setServerErrors(prev => ({ ...prev, [name]: null }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
 
     const payload = {
@@ -47,7 +50,6 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
       ...(formData.role === 'student' ? { year: formData.year } : {}),
       ...(formData.role === 'teacher' ? { subject: formData.subject } : {}),
     };
-
     if (payload.year === '') delete payload.year;
     if (payload.subject === '') delete payload.subject;
 
@@ -56,7 +58,6 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
       setErrors(validation.errors);
       return;
     }
-
     setErrors({});
     setServerErrors({});
     try {
@@ -80,25 +81,13 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
     { value: 'student', label: 'Student' },
     { value: 'teacher', label: 'Teacher' },
   ];
-  const departmentOptions = DEPARTMENTS.map((dept) => ({ value: dept, label: dept }));
-  const yearOptions = USER_YEARS.map((year) => ({ value: year, label: year }));
-  const subjectOptions = [
-    'Mathematics',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'History',
-    'English',
-    'Computer Science',
-  ].map((sub) => ({ value: sub, label: sub }));
+  const departmentOptions = DEPARTMENTS.map(dept => ({ value: dept, label: dept }));
+  const yearOptions = USER_YEARS.map(year => ({ value: year, label: year }));
+  const subjectOptions = subjects.map(sub => ({ value: sub, label: sub }));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-      {serverErrors.general && (
-        <div className="text-red-500 text-sm mb-2" role="alert">
-          {serverErrors.general}
-        </div>
-      )}
+      {serverErrors.general && <div className="text-red-500 text-sm mb-2" role="alert">{serverErrors.general}</div>}
 
       <Input
         label="Full Name"
@@ -107,7 +96,6 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
         value={formData.name}
         onChange={handleInputChange}
         placeholder="Enter your full name"
-        icon={<User className="h-4 w-4" />}
         error={errors.name || serverErrors.name}
         required
         disabled={loading}
@@ -120,7 +108,6 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
         value={formData.email}
         onChange={handleInputChange}
         placeholder="Enter your email"
-        icon={<Mail className="h-4 w-4" />}
         error={errors.email || serverErrors.email}
         required
         disabled={loading}
@@ -134,7 +121,6 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
           value={formData.password}
           onChange={handleInputChange}
           placeholder="Enter your password"
-          icon={<Lock className="h-4 w-4" />}
           error={errors.password || serverErrors.password}
           required
           disabled={loading}
@@ -146,7 +132,7 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
           disabled={loading}
           aria-label={showPassword ? 'Hide password' : 'Show password'}
         >
-          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+          {showPassword ? '🙈' : '👁️'}
         </button>
       </div>
 
@@ -158,7 +144,6 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
           onChange={handleInputChange}
           options={roleOptions}
           placeholder="Select role"
-          icon={<Shield className="h-4 w-4" />}
           error={errors.role || serverErrors.role}
           required
           disabled={loading}
@@ -200,7 +185,7 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
           placeholder="Select subject"
           error={errors.subject || serverErrors.subject}
           required
-          disabled={loading}
+          disabled={loading || subjects.length === 0}
         />
       )}
 

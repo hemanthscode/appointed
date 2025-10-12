@@ -44,31 +44,47 @@ export const ROUTES = {
   REQUESTS: '/requests',
 };
 
-// Add any additional constants like departments or years here as needed
 export const DEPARTMENTS = [
-  'Computer Science',
-  'Mathematics',
-  'Physics',
-  'Chemistry',
-  'Biology',
-  'Economics',
-  'English',
-  'History',
+  "Computer Science",
+  "Information Technology",
+  "Electronics Engineering",
+  "Mechanical Engineering",
+  "Civil Engineering",
+  "Mathematics",
+  "Physics",
+  "Chemistry",
+  "Business Administration",
+  "English Literature"
+];
+
+export const TIME_SLOTS = [
+  "9:00 AM",
+  "10:00 AM",
+  "11:00 AM",
+  "12:00 PM",
+  "1:00 PM",
+  "2:00 PM",
+  "3:00 PM",
+  "4:00 PM",
+  "5:00 PM"
+];
+
+export const PURPOSES = [
+  { value: "academic-help", label: "Academic Help" },
+  { value: "project-discussion", label: "Project Discussion" },
+  { value: "career-guidance", label: "Career Guidance" },
+  { value: "exam-preparation", label: "Exam Preparation" },
+  { value: "research-guidance", label: "Research Guidance" },
+  { value: "other", label: "Other" }
 ];
 
 export const USER_YEARS = [
-  'First Year',
-  'Second Year',
-  'Third Year',
-  'Fourth Year',
-];
-export const PURPOSES = [
-  { value: 'academic-help', label: 'Academic Help' },
-  { value: 'project-discussion', label: 'Project Discussion' },
-  { value: 'career-guidance', label: 'Career Guidance' },
-  { value: 'exam-preparation', label: 'Exam Preparation' },
-  { value: 'research-guidance', label: 'Research Guidance' },
-  { value: 'other', label: 'Other' },
+  "1st Year",
+  "2nd Year",
+  "3rd Year",
+  "4th Year",
+  "Graduate",
+  "Post Graduate"
 ];
 
 export const SLOT_STATUS_OPTIONS = [

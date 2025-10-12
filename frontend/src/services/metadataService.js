@@ -1,11 +1,29 @@
 import apiService from './apiService';
 
-export const getDepartments = () => apiService.request('/metadata/departments', { method: 'GET' });
-export const getSubjects = (department) =>
-  apiService.request(`/metadata/subjects?department=${encodeURIComponent(department)}`, { method: 'GET' });
-export const getTimeSlots = () => apiService.request('/metadata/time-slots', { method: 'GET' });
-export const getAppointmentPurposes = () => apiService.request('/metadata/appointment-purposes', { method: 'GET' });
-export const getUserYears = () => apiService.request('/metadata/user-years', { method: 'GET' });
+const getDepartments = async () => {
+  const data = await apiService.request('/metadata/departments');
+  return data.departments || data.data?.departments || [];
+};
+
+const getSubjects = async (department) => {
+  const data = await apiService.request(`/metadata/subjects?department=${encodeURIComponent(department)}`);
+  return data.subjects || data.data?.subjects || [];
+};
+
+const getTimeSlots = async () => {
+  const data = await apiService.request('/metadata/time-slots');
+  return data.timeSlots || data.data?.timeSlots || [];
+};
+
+const getAppointmentPurposes = async () => {
+  const data = await apiService.request('/metadata/appointment-purposes');
+  return data.purposes || data.data?.purposes || [];
+};
+
+const getUserYears = async () => {
+  const data = await apiService.request('/metadata/user-years');
+  return data.years || data.data?.years || [];
+};
 
 export default {
   getDepartments,

@@ -1,15 +1,26 @@
 import apiService from './apiService';
 
-export const getUsers = (params) => apiService.request('/admin/users', { method: 'GET', params });
-export const bulkUserOperation = (body) => apiService.request('/admin/users/bulk', { method: 'PATCH', body });
+const getUsers = (params) =>
+  apiService.request(`/admin/users?${new URLSearchParams(params).toString()}`);
 
-export const getApprovals = (params) => apiService.request('/admin/approvals', { method: 'GET', params });
-export const approveUser = (id) => apiService.request(`/admin/approvals/${id}/approve`, { method: 'PATCH' });
-export const rejectUser = (id) => apiService.request(`/admin/approvals/${id}/reject`, { method: 'PATCH' });
+const bulkUserOperation = (data) =>
+  apiService.request('/admin/users/bulk', { method: 'PATCH', body: data });
 
-export const getSystemStats = () => apiService.request('/admin/stats', { method: 'GET' });
-export const getSettings = () => apiService.request('/admin/settings', { method: 'GET' });
-export const updateSettings = (body) => apiService.request('/admin/settings', { method: 'PUT', body });
+const getApprovals = (params) =>
+  apiService.request(`/admin/approvals?${new URLSearchParams(params).toString()}`);
+
+const approveUser = (id) =>
+  apiService.request(`/admin/approvals/${id}/approve`, { method: 'PATCH' });
+
+const rejectUser = (id) =>
+  apiService.request(`/admin/approvals/${id}/reject`, { method: 'PATCH' });
+
+const getSystemStats = () => apiService.request('/admin/stats');
+
+const getSettings = () => apiService.request('/admin/settings');
+
+const updateSettings = (data) =>
+  apiService.request('/admin/settings', { method: 'PUT', body: data });
 
 export default {
   getUsers,

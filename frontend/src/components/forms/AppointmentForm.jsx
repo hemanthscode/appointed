@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Input, Select, Textarea, Button } from '../ui';
-import { PURPOSES } from '../../utils';
-import { validateAppointment } from '../../utils';
+import { PURPOSES } from '../../utils/constants';
+import { validateAppointment } from '../../utils/validators';
+import { useTeachers } from '../../hooks';
+import { useTimeSlots } from '../../hooks/useMetadata';
 
-const AppointmentForm = ({ initialData = {}, teachers = [], onSubmit, loading, onCancel }) => {
+const AppointmentForm = ({ initialData = {}, onSubmit, loading, onCancel }) => {
   const [formData, setFormData] = useState({
     teacher: '',
     date: '',
@@ -13,6 +15,10 @@ const AppointmentForm = ({ initialData = {}, teachers = [], onSubmit, loading, o
     ...initialData,
   });
   const [errors, setErrors] = useState({});
+
+  // Load teachers and time slots from hooks
+  const { teachers, loading: teachersLoading } = useTeachers();
+  const { timeSlots, loading: timeSlotsLoading } = useTimeSlots();
 
   useEffect(() => {
     setFormData(prev => ({ ...prev, ...initialData }));
@@ -46,7 +52,7 @@ const AppointmentForm = ({ initialData = {}, teachers = [], onSubmit, loading, o
         placeholder="Select Teacher"
         error={errors.teacher}
         required
-        disabled={loading}
+        disabled={loading || teachersLoading}
       />
       <Input
         label="Date"
@@ -58,15 +64,16 @@ const AppointmentForm = ({ initialData = {}, teachers = [], onSubmit, loading, o
         required
         disabled={loading}
       />
-      <Input
+      <Select
         label="Time"
         name="time"
-        type="time"
         value={formData.time}
         onChange={handleChange}
+        options={timeSlots.map(slot => ({ value: slot, label: slot }))}
+        placeholder="Select Time Slot"
         error={errors.time}
         required
-        disabled={loading}
+        disabled={loading || timeSlotsLoading}
       />
       <Select
         label="Purpose"

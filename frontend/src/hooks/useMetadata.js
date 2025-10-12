@@ -1,54 +1,91 @@
 import { useState, useEffect } from 'react';
 import metadataService from '../services/metadataService';
 
-export default function useMetadata() {
+export const useDepartments = () => {
   const [departments, setDepartments] = useState([]);
-  const [subjects, setSubjects] = useState([]);
-  const [timeSlots, setTimeSlots] = useState([]);
-  const [appointmentPurposes, setAppointmentPurposes] = useState([]);
-  const [userYears, setUserYears] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    async function fetchMetadata() {
-      try {
-        const [departmentsRes, timeSlotsRes, purposesRes, yearsRes] = await Promise.all([
-          metadataService.getDepartments(),
-          metadataService.getTimeSlots(),
-          metadataService.getAppointmentPurposes(),
-          metadataService.getUserYears(),
-        ]);
-        setDepartments(departmentsRes.departments);
-        setTimeSlots(timeSlotsRes.timeSlots);
-        setAppointmentPurposes(purposesRes.purposes);
-        setUserYears(yearsRes.years);
-        setLoading(false);
-      } catch {
-        setLoading(false);
-      }
-    }
-    fetchMetadata();
+    setLoading(true);
+    setError(null);
+    metadataService.getDepartments()
+      .then(res => setDepartments(res))
+      .catch(err => setError(err.message || 'Failed to load departments'))
+      .finally(() => setLoading(false));
   }, []);
 
-  const fetchSubjectsByDepartment = async (department) => {
-    if (!department) return [];
-    try {
-      const { subjects } = await metadataService.getSubjects(department);
-      setSubjects(subjects);
-      return subjects;
-    } catch {
-      setSubjects([]);
-      return [];
-    }
-  };
+  return { departments, loading, error };
+};
 
-  return {
-    departments,
-    subjects,
-    timeSlots,
-    appointmentPurposes,
-    userYears,
-    fetchSubjectsByDepartment,
-    loading,
-  };
-}
+export const useSubjects = (department) => {
+  const [subjects, setSubjects] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!department) {
+      setSubjects([]);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    metadataService.getSubjects(department)
+      .then(res => setSubjects(res))
+      .catch(err => setError(err.message || 'Failed to load subjects'))
+      .finally(() => setLoading(false));
+  }, [department]);
+
+  return { subjects, loading, error };
+};
+
+export const useTimeSlots = () => {
+  const [timeSlots, setTimeSlots] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    metadataService.getTimeSlots()
+      .then(res => setTimeSlots(res))
+      .catch(err => setError(err.message || 'Failed to load time slots'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { timeSlots, loading, error };
+};
+
+export const useAppointmentPurposes = () => {
+  const [purposes, setPurposes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    metadataService.getAppointmentPurposes()
+      .then(res => setPurposes(res))
+      .catch(err => setError(err.message || 'Failed to load appointment purposes'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { purposes, loading, error };
+};
+
+export const useUserYears = () => {
+  const [years, setYears] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    metadataService.getUserYears()
+      .then(res => setYears(res))
+      .catch(err => setError(err.message || 'Failed to load years'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { years, loading, error };
+};
