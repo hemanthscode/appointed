@@ -1,68 +1,101 @@
 const Schedule = require('../models/Schedule');
 const Appointment = require('../models/Appointment');
-const User = require('../models/User');
 const { asyncHandler } = require('../middleware/errorHandler');
+const User = require('../models/User');
+const constants = require('../utils/constants');
 
-// Helper to get start/end of day for date filtering
+// Normalize date to midnight UTC
+function normalizeDateOnly(dateInput) {
+  const d = new Date(dateInput);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
+// Return start and end of day range
 function getDateRange(dateStr) {
-  const start = new Date(dateStr);
+  const start = normalizeDateOnly(dateStr);
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
   return { start, end };
 }
 
-// GET /api/schedule - Get teacher's schedule with filtering and pagination
-const getSchedule = asyncHandler(async (req, res) => {
-  const { date, week, month, status, page = 1, limit = 50 } = req.query;
+// Convert time string like "9:00 AM" into a sortable number (900)
+function timeToNumber(timeStr) {
+  const [timePart, meridian] = timeStr.split(" ");
+  let [hours, minutes] = timePart.split(":").map(Number);
+  if (meridian === "PM" && hours !== 12) hours += 12;
+  else if (meridian === "AM" && hours === 12) hours = 0;
+  return hours * 100 + minutes;
+}
 
-  let dateFilter = {};
+// Sort slots by date ascending then time ascending logically
+function sortSlots(slots) {
+  return slots.sort((a, b) => {
+    if (a.date < b.date) return -1;
+    if (a.date > b.date) return 1;
+    return timeToNumber(a.time) - timeToNumber(b.time);
+  });
+}
 
-  if (date) {
-    const { start, end } = getDateRange(date);
-    dateFilter.date = { $gte: start, $lt: end };
-  } else if (week) {
-    const [year, weekNum] = week.split('-W');
-    const startOfYear = new Date(year, 0, 1);
-    const days = (weekNum - 1) * 7;
-    const start = new Date(startOfYear.setDate(startOfYear.getDate() + days));
-    const end = new Date(start);
-    end.setDate(end.getDate() + 7);
-    dateFilter.date = { $gte: start, $lt: end };
-  } else if (month) {
-    const [year, monthNum] = month.split('-');
-    const start = new Date(year, monthNum - 1, 1);
-    const end = new Date(year, monthNum, 0);
-    dateFilter.date = { $gte: start, $lte: end };
+// Ensure fixed TIME_SLOTS exist for teacher on given date, create missing only
+async function ensureFixedSlots(teacherId, date) {
+  const normalizedDate = normalizeDateOnly(date);
+
+  const existingSlots = await Schedule.find({ teacher: teacherId, date: normalizedDate });
+
+  const existingTimes = new Set(existingSlots.map(s => s.time));
+
+  const missingTimes = constants.TIME_SLOTS.filter(t => !existingTimes.has(t));
+
+  const slotsToInsert = missingTimes.map(time => ({
+    teacher: teacherId,
+    date: normalizedDate,
+    time,
+    duration: 60,
+    status: 'available',
+    isRecurring: false,
+    isActive: true
+  }));
+
+  if (slotsToInsert.length > 0) {
+    try {
+      await Schedule.insertMany(slotsToInsert, { ordered: false });
+    } catch (e) {
+      // Ignore duplicate key errors to avoid crashing
+      if (e.code !== 11000) throw e;
+    }
   }
+}
 
-  const query = {
-    teacher: req.user._id,
-    isActive: true,
-    ...dateFilter,
-  };
+exports.getSchedule = asyncHandler(async (req, res) => {
+  const { date, page = 1, limit = 50 } = req.query;
+  if (!date) return res.status(400).json({ success: false, message: 'Date query parameter is required' });
 
-  if (status) {
-    query.status = status;
-  }
+  const teacherId = req.user._id;
+  const normalizedDate = normalizeDateOnly(date);
 
-  const scheduleSlots = await Schedule.find(query)
+  await ensureFixedSlots(teacherId, normalizedDate);
+
+  const query = { teacher: teacherId, date: normalizedDate, isActive: true };
+
+  const total = await Schedule.countDocuments(query);
+
+  let scheduleSlots = await Schedule.find(query)
     .populate('student', 'name email department year')
     .populate('appointment', 'purpose message status')
-    .sort({ date: 1, time: 1 })
-    .limit(parseInt(limit))
-    .skip((parseInt(page) - 1) * parseInt(limit));
+    .limit(Number(limit))
+    .skip((Number(page) - 1) * Number(limit));
 
+  scheduleSlots = sortSlots(scheduleSlots);
+
+  // Daily statistics
   const stats = await Schedule.aggregate([
-    { $match: { teacher: req.user._id, isActive: true } },
+    { $match: { teacher: teacherId, date: normalizedDate, isActive: true } },
     { $group: { _id: '$status', count: { $sum: 1 } } }
   ]);
 
   const statusCounts = { available: 0, booked: 0, blocked: 0, unavailable: 0 };
-  stats.forEach(stat => {
-    statusCounts[stat._id] = stat.count;
-  });
-
-  const total = await Schedule.countDocuments(query);
+  stats.forEach(({ _id, count }) => { statusCounts[_id] = count; });
 
   res.status(200).json({
     success: true,
@@ -70,115 +103,99 @@ const getSchedule = asyncHandler(async (req, res) => {
       scheduleSlots,
       statistics: statusCounts,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: Number(page),
+        limit: Number(limit),
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / Number(limit))
       }
     }
   });
 });
 
-// PUT /api/schedule - Update or create multiple schedule slots
-const updateSchedule = asyncHandler(async (req, res) => {
+exports.updateSchedule = asyncHandler(async (req, res) => {
   const { scheduleSlots } = req.body;
 
   if (!Array.isArray(scheduleSlots) || scheduleSlots.length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'Schedule slots array is required'
-    });
+    return res.status(400).json({ success: false, message: 'Schedule slots array is required' });
   }
 
   const updatedSlots = [];
   const errors = [];
 
+  function normalizeTime(timeStr) {
+    return timeStr.trim().toUpperCase();
+  }
+
   for (let i = 0; i < scheduleSlots.length; i++) {
     const slotData = scheduleSlots[i];
-
     try {
+      const normalizedDate = normalizeDateOnly(slotData.date);
+      const normalizedTime = normalizeTime(slotData.time);
       let existingSlot = await Schedule.findOne({
         teacher: req.user._id,
-        date: new Date(slotData.date),
-        time: slotData.time,
+        date: normalizedDate,
+        time: normalizedTime,
         isActive: true
       });
 
-      if (existingSlot) {
-        if (existingSlot.status === 'booked' && slotData.status !== 'booked') {
-          errors.push({ index: i, message: 'Cannot modify booked time slot' });
-          continue;
-        }
-
-        existingSlot.status = slotData.status || existingSlot.status;
-        existingSlot.blockReason = slotData.blockReason;
-        existingSlot.notes = slotData.notes;
-        existingSlot.duration = slotData.duration || 60;
-        await existingSlot.save();
-        updatedSlots.push(existingSlot);
-      } else {
-        const newSlot = await Schedule.create({
-          teacher: req.user._id,
-          date: new Date(slotData.date),
-          time: slotData.time,
-          status: slotData.status || 'available',
-          blockReason: slotData.blockReason,
-          notes: slotData.notes,
-          duration: slotData.duration || 60,
-          isRecurring: slotData.isRecurring || false,
-          recurringPattern: slotData.recurringPattern,
-          recurringEndDate: slotData.recurringEndDate ? new Date(slotData.recurringEndDate) : undefined
-        });
-        updatedSlots.push(newSlot);
+      if (!existingSlot) {
+        errors.push({ index: i, message: 'Slot does not exist; cannot create new slot outside fixed slots' });
+        continue;
       }
+
+      if (existingSlot.status === 'booked' && slotData.status !== 'booked') {
+        errors.push({ index: i, message: 'Cannot modify booked time slot' });
+        continue;
+      }
+
+      existingSlot.status = slotData.status || existingSlot.status;
+      existingSlot.blockReason = existingSlot.status === 'blocked' ? slotData.blockReason : undefined;
+      existingSlot.notes = slotData.notes;
+      existingSlot.duration = slotData.duration || 60;
+      existingSlot.isRecurring = slotData.isRecurring || false;
+      existingSlot.recurringPattern = slotData.recurringPattern;
+      existingSlot.recurringEndDate = slotData.recurringEndDate ? new Date(slotData.recurringEndDate) : undefined;
+
+      await existingSlot.save();
+      updatedSlots.push(existingSlot);
     } catch (error) {
       errors.push({ index: i, message: error.message });
     }
   }
 
+  updatedSlots.sort((a, b) => {
+    if (a.date < b.date) return -1;
+    if (a.date > b.date) return 1;
+    return timeToNumber(a.time) - timeToNumber(b.time);
+  });
+
   res.status(200).json({
     success: true,
     message: 'Schedule updated successfully',
-    data: {
-      updatedSlots,
-      errors: errors.length > 0 ? errors : undefined
-    }
+    data: { updatedSlots, errors: errors.length > 0 ? errors : undefined }
   });
 });
 
-// GET /api/schedule/available/:teacherId - Get available slots for teacher
-const getAvailableSlots = asyncHandler(async (req, res) => {
+exports.getAvailableSlots = asyncHandler(async (req, res) => {
   const { teacherId } = req.params;
-  const { date, week } = req.query;
+  const { date } = req.query;
+
+  if (!date) return res.status(400).json({ success: false, message: 'Date query parameter is required' });
 
   const teacher = await User.findOne({ _id: teacherId, role: 'teacher', status: 'active' });
-  if (!teacher) {
-    return res.status(404).json({ success: false, message: 'Teacher not found' });
-  }
+  if (!teacher) return res.status(404).json({ success: false, message: 'Teacher not found' });
 
-  let dateFilter = {};
-  if (date) {
-    const { start, end } = getDateRange(date);
-    dateFilter.date = { $gte: start, $lt: end };
-  } else if (week) {
-    const startOfWeek = new Date();
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(endOfWeek.getDate() + 7);
-    dateFilter.date = { $gte: startOfWeek, $lt: endOfWeek };
-  } else {
-    const today = new Date();
-    const nextWeek = new Date();
-    nextWeek.setDate(today.getDate() + 7);
-    dateFilter.date = { $gte: today, $lt: nextWeek };
-  }
+  const normalizedDate = normalizeDateOnly(date);
+  await ensureFixedSlots(teacherId, normalizedDate);
 
-  const availableSlots = await Schedule.find({
+  let availableSlots = await Schedule.find({
     teacher: teacherId,
+    date: normalizedDate,
     status: 'available',
-    isActive: true,
-    ...dateFilter
-  }).sort({ date: 1, time: 1 });
+    isActive: true
+  });
+
+  availableSlots = availableSlots.sort((a, b) => timeToNumber(a.time) - timeToNumber(b.time));
 
   res.status(200).json({
     success: true,
@@ -194,45 +211,35 @@ const getAvailableSlots = asyncHandler(async (req, res) => {
   });
 });
 
-// POST /api/schedule/block - Block time slot
-const blockSlot = asyncHandler(async (req, res) => {
+exports.blockSlot = asyncHandler(async (req, res) => {
   const { date, time, blockReason, isRecurring, recurringPattern, recurringEndDate } = req.body;
+  const normalizedDate = normalizeDateOnly(date);
 
-  let existingSlot = await Schedule.findOne({ teacher: req.user._id, date: new Date(date), time, isActive: true });
+  let existingSlot = await Schedule.findOne({ teacher: req.user._id, date: normalizedDate, time });
 
-  if (existingSlot) {
-    if (existingSlot.status === 'booked') {
-      return res.status(400).json({ success: false, message: 'Cannot block a booked time slot' });
-    }
-    existingSlot.status = 'blocked';
-    existingSlot.blockReason = blockReason;
-    await existingSlot.save();
-
-    res.status(200).json({ success: true, message: 'Time slot blocked successfully', data: { slot: existingSlot } });
-  } else {
-    const newSlot = await Schedule.create({
-      teacher: req.user._id,
-      date: new Date(date),
-      time,
-      status: 'blocked',
-      blockReason,
-      isRecurring,
-      recurringPattern,
-      recurringEndDate: recurringEndDate ? new Date(recurringEndDate) : undefined
-    });
-
-    res.status(201).json({ success: true, message: 'Time slot blocked successfully', data: { slot: newSlot } });
+  if (!existingSlot) {
+    return res.status(400).json({ success: false, message: 'Cannot block non-existing slot' });
   }
+
+  if (existingSlot.status === 'booked') {
+    return res.status(400).json({ success: false, message: 'Cannot block a booked time slot' });
+  }
+
+  existingSlot.status = 'blocked';
+  existingSlot.blockReason = blockReason;
+  existingSlot.isRecurring = isRecurring || false;
+  existingSlot.recurringPattern = recurringPattern;
+  existingSlot.recurringEndDate = recurringEndDate ? new Date(recurringEndDate) : undefined;
+  await existingSlot.save();
+
+  res.status(200).json({ success: true, message: 'Time slot blocked', data: { slot: existingSlot } });
 });
 
-// DELETE /api/schedule/block/:slotId - Unblock time slot
-const unblockSlot = asyncHandler(async (req, res) => {
-  const { slotId } = req.params;
+exports.unblockSlot = asyncHandler(async (req, res) => {
+  const {slotId} = req.params;
 
   const slot = await Schedule.findOne({ _id: slotId, teacher: req.user._id });
-  if (!slot) {
-    return res.status(404).json({ success: false, message: 'Schedule slot not found' });
-  }
+  if (!slot) return res.status(404).json({ success: false, message: 'Schedule slot not found' });
 
   if (slot.status !== 'blocked') {
     return res.status(400).json({ success: false, message: 'Only blocked slots can be unblocked' });
@@ -242,89 +249,53 @@ const unblockSlot = asyncHandler(async (req, res) => {
   slot.blockReason = undefined;
   await slot.save();
 
-  res.status(200).json({ success: true, message: 'Time slot unblocked successfully', data: { slot } });
+  res.status(200).json({ success: true, message: 'Time slot unblocked', data: { slot } });
 });
 
-// DELETE /api/schedule/:slotId - Delete schedule slot
-const deleteSlot = asyncHandler(async (req, res) => {
-  const { slotId } = req.params;
+exports.deleteSlot = asyncHandler(async (req, res) => {
+  const {slotId} = req.params;
 
   const slot = await Schedule.findOne({ _id: slotId, teacher: req.user._id });
-  if (!slot) {
-    return res.status(404).json({ success: false, message: 'Schedule slot not found' });
-  }
+  if (!slot) return res.status(404).json({ success: false, message: 'Schedule slot not found' });
 
   if (slot.status === 'booked') {
     return res.status(400).json({ success: false, message: 'Cannot delete a booked time slot' });
   }
 
-  await Schedule.findByIdAndDelete(slotId);
+  // Soft delete preferred
+  slot.isActive = false;
+  await slot.save();
 
-  res.status(200).json({ success: true, message: 'Schedule slot deleted successfully' });
+  res.status(200).json({ success: true, message: 'Schedule slot deactivated' });
 });
 
-// GET /api/schedule/stats - Get teacher schedule stats by period
-const getScheduleStats = asyncHandler(async (req, res) => {
-  const { period = 'week' } = req.query;
-  const today = new Date();
-  let dateFilter;
+exports.getScheduleStats = asyncHandler(async (req, res) => {
+  const {date} = req.query;
+  if (!date) return res.status(400).json({ success: false, message: 'Date query param is required' });
 
-  switch (period) {
-    case 'today': {
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      dateFilter = { $gte: today, $lt: tomorrow };
-      break;
-    }
-    case 'week': {
-      const endOfWeek = new Date(today);
-      endOfWeek.setDate(today.getDate() + 7);
-      dateFilter = { $gte: today, $lt: endOfWeek };
-      break;
-    }
-    case 'month': {
-      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      dateFilter = { $gte: today, $lte: endOfMonth };
-      break;
-    }
-    default:
-      dateFilter = { $gte: today };
-  }
+  const teacherId = req.user._id;
+  const normalizedDate = normalizeDateOnly(date);
 
-  const stats = await Schedule.aggregate([
-    { $match: { teacher: req.user._id, date: dateFilter, isActive: true } },
-    { $group: { _id: '$status', count: { $sum: 1 } } }
+  const query = { teacher: teacherId, date: normalizedDate, isActive: true };
+
+  // The fixed number of slots depends on your constants
+  const totalSlots = constants.TIME_SLOTS.length;
+
+  const slotStatsRaw = await Schedule.aggregate([
+    { $match: query },
+    { $group: { _id: "$status", count: { $sum: 1 } } }
   ]);
 
-  const appointmentStats = await Appointment.aggregate([
-    { $match: { teacher: req.user._id, date: dateFilter } },
-    { $group: { _id: '$status', count: { $sum: 1 } } }
-  ]);
-
-  const scheduleStats = { available: 0, booked: 0, blocked: 0, unavailable: 0 };
-  const appointmentCounts = { pending: 0, confirmed: 0, completed: 0, rejected: 0, cancelled: 0 };
-
-  stats.forEach(stat => { scheduleStats[stat._id] = stat.count; });
-  appointmentStats.forEach(stat => { appointmentCounts[stat._id] = stat.count; });
+  const statusCounts = { available: 0, booked: 0, blocked: 0, unavailable: 0 };
+  slotStatsRaw.forEach(({_id, count}) => { statusCounts[_id] = count; });
 
   res.status(200).json({
     success: true,
     data: {
-      period,
-      schedule: scheduleStats,
-      appointments: appointmentCounts,
-      totalSlots: Object.values(scheduleStats).reduce((a, b) => a + b, 0),
-      totalAppointments: Object.values(appointmentCounts).reduce((a, b) => a + b, 0)
+      date: normalizedDate,
+      totalSlots,
+      statusCounts,
+      remainingSlots: totalSlots - (statusCounts.booked + statusCounts.blocked),
     }
   });
 });
-
-module.exports = {
-  getSchedule,
-  updateSchedule,
-  getAvailableSlots,
-  blockSlot,
-  unblockSlot,
-  deleteSlot,
-  getScheduleStats
-};

@@ -1,4 +1,3 @@
-// ADD THIS AT THE VERY TOP - BEFORE ANY OTHER REQUIRES
 require('dotenv').config();
 
 const app = require('./app');
@@ -8,25 +7,20 @@ const { initializeSocket } = require('./config/socket');
 
 const PORT = process.env.PORT || 3001;
 
-// Connect to MongoDB
 connectDB();
 
-// Create HTTP server
 const server = createServer(app);
 
-// Initialize Socket.IO
-initializeSocket(server);
+const io = initializeSocket(server);
 
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV}`);
-  console.log(`🗄️  Database: ${process.env.NODE_ENV === 'production' ? 'Production' : 'Development'}`);
+  console.info(`🚀 Server running on port ${PORT}`);
+  console.info(`📊 Environment: ${process.env.NODE_ENV}`);
 });
 
-// Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
+  console.info('SIGTERM received, shutting down gracefully');
   server.close(() => {
-    console.log('Process terminated');
+    console.info('Server terminated');
   });
 });

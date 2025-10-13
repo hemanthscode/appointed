@@ -1,46 +1,27 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 const authConfig = {
-  // JWT Settings
-  jwtSecret: process.env.JWT_SECRET || 'your-super-secret-jwt-key',
+  jwtSecret: process.env.JWT_SECRET,
   jwtExpire: process.env.JWT_EXPIRE || '7d',
   jwtRefreshExpire: process.env.JWT_REFRESH_EXPIRE || '30d',
-  
-  // Password Settings
-  passwordMinLength: 8,
-  passwordSaltRounds: 12,
-  
-  // Token Settings
-  passwordResetExpire: 10 * 60 * 1000, // 10 minutes
-  emailVerificationExpire: 24 * 60 * 60 * 1000, // 24 hours
-  
-  // Rate Limiting
-  maxLoginAttempts: 5,
-  lockoutDuration: 30 * 60 * 1000, // 30 minutes
-  
-  // Generate JWT Token
-  generateToken: (payload) => {
-    return jwt.sign(payload, authConfig.jwtSecret, {
-      expiresIn: authConfig.jwtExpire
-    });
-  },
-  
-  // Generate Refresh Token
-  generateRefreshToken: (payload) => {
-    return jwt.sign(payload, authConfig.jwtSecret, {
-      expiresIn: authConfig.jwtRefreshExpire
-    });
-  },
-  
-  // Verify Token
-  verifyToken: (token) => {
-    return jwt.verify(token, authConfig.jwtSecret);
-  },
-  
-  // Generate Random Token
-  generateRandomToken: () => {
-    return require('crypto').randomBytes(32).toString('hex');
-  }
+
+  passwordMinLength: parseInt(process.env.PASSWORD_MIN_LENGTH) || 8,
+  passwordSaltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12,
+
+  passwordResetExpire: parseInt(process.env.PASSWORD_RESET_EXPIRE) || 10 * 60 * 1000, // 10 minutes
+  emailVerificationExpire: parseInt(process.env.EMAIL_VERIFICATION_EXPIRE) || 24 * 60 * 60 * 1000, // 24 hours
+
+  maxLoginAttempts: parseInt(process.env.MAX_LOGIN_ATTEMPTS) || 5,
+  lockoutDuration: parseInt(process.env.LOCKOUT_DURATION) || 30 * 60 * 1000, // 30 minutes
+
+  generateToken: (payload) => jwt.sign(payload, authConfig.jwtSecret, { expiresIn: authConfig.jwtExpire }),
+
+  generateRefreshToken: (payload) => jwt.sign(payload, authConfig.jwtSecret, { expiresIn: authConfig.jwtRefreshExpire }),
+
+  verifyToken: (token) => jwt.verify(token, authConfig.jwtSecret),
+
+  generateRandomToken: () => crypto.randomBytes(32).toString('hex')
 };
 
 module.exports = authConfig;

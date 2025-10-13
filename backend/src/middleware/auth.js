@@ -2,7 +2,9 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const authConfig = require('../config/auth');
 
-// Protect routes - require authentication
+/**
+ * Protect routes - Require valid JWT and active user
+ */
 const protect = async (req, res, next) => {
   try {
     let token;
@@ -12,51 +14,30 @@ const protect = async (req, res, next) => {
     }
 
     if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Not authorized to access this route'
-      });
+      return res.status(401).json({ success: false, message: 'Not authorized to access this route' });
     }
 
     try {
-      // Verify token
       const decoded = authConfig.verifyToken(token);
-      
-      // Get user from token
       const user = await User.findById(decoded.id).select('-password');
-      
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: 'No user found with this token'
-        });
-      }
 
-      // Check if user is active
-      if (user.status !== 'active') {
-        return res.status(401).json({
-          success: false,
-          message: 'User account is not active'
-        });
+      if (!user || user.status !== 'active') {
+        return res.status(401).json({ success: false, message: 'User not found or inactive' });
       }
 
       req.user = user;
       next();
-    } catch (error) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid token'
-      });
+    } catch (err) {
+      return res.status(401).json({ success: false, message: 'Invalid token' });
     }
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: 'Server error in authentication'
-    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Server error in authentication' });
   }
 };
 
-// Optional authentication - doesn't require token but adds user if present
+/**
+ * Optional authentication - Attaches user if token valid, else proceeds without user
+ */
 const optionalAuth = async (req, res, next) => {
   try {
     let token;
@@ -72,18 +53,15 @@ const optionalAuth = async (req, res, next) => {
         if (user && user.status === 'active') {
           req.user = user;
         }
-      } catch (error) {
-        // Continue without user if token is invalid
+      } catch {
+        // Invalid token - proceed without user
       }
     }
 
     next();
-  } catch (error) {
+  } catch {
     next();
   }
 };
 
-module.exports = {
-  protect,
-  optionalAuth
-};
+module.exports = { protect, optionalAuth };

@@ -1,30 +1,26 @@
 const nodemailer = require('nodemailer');
 
-// Email transporter configuration
 const createTransporter = () => {
   if (process.env.NODE_ENV === 'production') {
-    // Production email service (e.g., SendGrid, AWS SES)
-    return nodemailer.createTransporter({
-      service: 'gmail', // or your preferred service
+    return nodemailer.createTransport({
+      service: 'gmail',
       auth: {
         user: process.env.EMAIL_FROM,
         pass: process.env.EMAIL_PASSWORD
       }
     });
-  } else {
-    // Development - use Ethereal Email for testing
-    return nodemailer.createTransporter({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      auth: {
-        user: 'ethereal.user@ethereal.email',
-        pass: 'ethereal.pass'
-      }
-    });
   }
+  // Development using Ethereal
+  return nodemailer.createTransport({
+    host: 'smtp.ethereal.email',
+    port: 587,
+    auth: {
+      user: process.env.ETHEREAL_USER,
+      pass: process.env.ETHEREAL_PASS
+    }
+  });
 };
 
-// Send email helper
 const sendEmail = async (options) => {
   const transporter = createTransporter();
 
@@ -33,217 +29,59 @@ const sendEmail = async (options) => {
     to: options.email,
     subject: options.subject,
     html: options.html,
-    text: options.text
+    text: options.text || ''
   };
 
   try {
     const info = await transporter.sendMail(message);
-    console.log('Email sent:', info.messageId);
+    console.info('Email sent:', info.messageId);
     return info;
   } catch (error) {
-    console.error('Email error:', error);
+    console.error('Email sending failed:', error);
     throw new Error('Email could not be sent');
   }
 };
 
-// Email templates
 const emailTemplates = {
+  // Template methods return { subject, html } objects for different email types
   welcome: (user) => ({
     subject: 'Welcome to Appointed!',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #333;">Welcome to Appointed!</h1>
-        <p>Hi ${user.name},</p>
-        <p>Welcome to Appointed - the student-teacher appointment booking system.</p>
-        <p>Your account has been created successfully. ${user.status === 'pending' ? 'Please wait for admin approval to start using the system.' : 'You can now start booking appointments with teachers.'}</p>
-        <div style="background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px;">
-          <h3>Account Details:</h3>
-          <p><strong>Name:</strong> ${user.name}</p>
-          <p><strong>Email:</strong> ${user.email}</p>
-          <p><strong>Role:</strong> ${user.role}</p>
-          <p><strong>Department:</strong> ${user.department}</p>
-        </div>
-        <p>If you have any questions, please don't hesitate to contact our support team.</p>
-        <p>Best regards,<br>The Appointed Team</p>
-      </div>
-    `
+    html: `<div style="font-family: Arial; max-width:600px; margin:auto;">
+      <h1>Welcome to Appointed!</h1>
+      <p>Hi ${user.name}, your account has been created successfully. 
+      ${user.status==='pending' ? 'Please wait for admin approval.' : 'You can now book appointments.'}</p>
+      <p><strong>Email:</strong> ${user.email}</p>
+      </div>`
   }),
-
   appointmentNotification: (teacher, appointment) => ({
     subject: 'New Appointment Request',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #333;">New Appointment Request</h1>
-        <p>Hi ${teacher.name},</p>
-        <p>You have received a new appointment request from ${appointment.student.name}.</p>
-        <div style="background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px;">
-          <h3>Appointment Details:</h3>
-          <p><strong>Student:</strong> ${appointment.student.name}</p>
-          <p><strong>Date:</strong> ${appointment.formattedDate}</p>
-          <p><strong>Time:</strong> ${appointment.time}</p>
-          <p><strong>Purpose:</strong> ${appointment.purpose}</p>
-          ${appointment.message ? `<p><strong>Message:</strong> ${appointment.message}</p>` : ''}
-        </div>
-        <p>Please log in to your account to approve or reject this request.</p>
-        <p>Best regards,<br>The Appointed Team</p>
-      </div>
-    `
+    html: `<p>Hi ${teacher.name}, you have a new appointment request from ${appointment.student.name} on ${appointment.formattedDate} at ${appointment.time}.</p>`
   }),
-
   appointmentConfirmation: (student, appointment) => ({
     subject: 'Appointment Confirmed',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #4CAF50;">Appointment Confirmed</h1>
-        <p>Hi ${student.name},</p>
-        <p>Your appointment request has been confirmed by ${appointment.teacher.name}.</p>
-        <div style="background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px;">
-          <h3>Appointment Details:</h3>
-          <p><strong>Teacher:</strong> ${appointment.teacher.name}</p>
-          <p><strong>Date:</strong> ${appointment.formattedDate}</p>
-          <p><strong>Time:</strong> ${appointment.time}</p>
-          <p><strong>Purpose:</strong> ${appointment.purpose}</p>
-          <p><strong>Subject:</strong> ${appointment.subject}</p>
-        </div>
-        <p>Please be on time for your appointment. If you need to reschedule or cancel, please do so at least 2 hours in advance.</p>
-        <p>Best regards,<br>The Appointed Team</p>
-      </div>
-    `
+    html: `<p>Hi ${student.name}, your appointment with ${appointment.teacher.name} has been confirmed.</p>`
   }),
-
-  appointmentReminder: (user, appointment, isTeacher = false) => ({
-    subject: 'Appointment Reminder',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #FF9800;">Appointment Reminder</h1>
-        <p>Hi ${user.name},</p>
-        <p>This is a reminder about your upcoming appointment ${isTeacher ? 'with' : 'with'} ${isTeacher ? appointment.student.name : appointment.teacher.name}.</p>
-        <div style="background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px;">
-          <h3>Appointment Details:</h3>
-          <p><strong>${isTeacher ? 'Student' : 'Teacher'}:</strong> ${isTeacher ? appointment.student.name : appointment.teacher.name}</p>
-          <p><strong>Date:</strong> ${appointment.formattedDate}</p>
-          <p><strong>Time:</strong> ${appointment.time}</p>
-          <p><strong>Purpose:</strong> ${appointment.purpose}</p>
-          <p><strong>Subject:</strong> ${appointment.subject}</p>
-        </div>
-        <p>Please be prepared and on time for your appointment.</p>
-        <p>Best regards,<br>The Appointed Team</p>
-      </div>
-    `
-  }),
-
-  passwordReset: (user, resetToken) => ({
+  passwordReset: (user, token) => ({
     subject: 'Password Reset Request',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #333;">Password Reset Request</h1>
-        <p>Hi ${user.name},</p>
-        <p>You requested a password reset for your Appointed account.</p>
-        <p>Please use the following token to reset your password:</p>
-        <div style="background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px; text-align: center;">
-          <h2 style="color: #333; letter-spacing: 2px;">${resetToken}</h2>
-        </div>
-        <p>This token will expire in 10 minutes for security reasons.</p>
-        <p>If you didn't request this password reset, please ignore this email.</p>
-        <p>Best regards,<br>The Appointed Team</p>
-      </div>
-    `
+    html: `<p>Hi ${user.name}, use this token to reset your password: <strong>${token}</strong></p>`
   }),
-
   approval: (user, message) => ({
-    subject: 'Account Approved - Welcome to Appointed!',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #4CAF50;">Account Approved!</h1>
-        <p>Hi ${user.name},</p>
-        <p>Great news! Your account has been approved and is now active.</p>
-        <p>You can now access all features of the Appointed system and start ${user.role === 'student' ? 'booking appointments with teachers' : 'managing your schedule and appointments'}.</p>
-        ${message ? `<div style="background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px;"><p><strong>Message from Admin:</strong> ${message}</p></div>` : ''}
-        <p>Log in to your account to get started!</p>
-        <p>Best regards,<br>The Appointed Team</p>
-      </div>
-    `
+    subject: 'Account Approved',
+    html: `<p>Hi ${user.name}, your account is now active. ${message || ''}</p>`
   }),
-
   rejection: (user, reason) => ({
     subject: 'Account Registration Update',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #f44336;">Registration Update</h1>
-        <p>Hi ${user.name},</p>
-        <p>We regret to inform you that your account registration has not been approved at this time.</p>
-        ${reason ? `<div style="background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px;"><p><strong>Reason:</strong> ${reason}</p></div>` : ''}
-        <p>If you believe this is an error or would like to reapply, please contact our support team.</p>
-        <p>Best regards,<br>The Appointed Team</p>
-      </div>
-    `
+    html: `<p>Hi ${user.name}, your registration has been rejected. ${reason || ''}</p>`
   })
 };
 
-// Email service methods
 const emailService = {
-  // Send welcome email
-  sendWelcomeEmail: async (user) => {
-    const template = emailTemplates.welcome(user);
-    return sendEmail({
-      email: user.email,
-      ...template
-    });
-  },
-
-  // Send appointment notification to teacher
-  sendAppointmentNotification: async (teacher, appointment) => {
-    const template = emailTemplates.appointmentNotification(teacher, appointment);
-    return sendEmail({
-      email: teacher.email,
-      ...template
-    });
-  },
-
-  // Send appointment confirmation to student
-  sendAppointmentConfirmation: async (student, appointment) => {
-    const template = emailTemplates.appointmentConfirmation(student, appointment);
-    return sendEmail({
-      email: student.email,
-      ...template
-    });
-  },
-
-  // Send appointment reminder
-  sendAppointmentReminder: async (user, appointment, isTeacher = false) => {
-    const template = emailTemplates.appointmentReminder(user, appointment, isTeacher);
-    return sendEmail({
-      email: user.email,
-      ...template
-    });
-  },
-
-  // Send password reset email
-  sendPasswordResetEmail: async (user, resetToken) => {
-    const template = emailTemplates.passwordReset(user, resetToken);
-    return sendEmail({
-      email: user.email,
-      ...template
-    });
-  },
-
-  // Send approval email
-  sendApprovalEmail: async (user, message) => {
-    const template = emailTemplates.approval(user, message);
-    return sendEmail({
-      email: user.email,
-      ...template
-    });
-  },
-
-  // Send rejection email
-  sendRejectionEmail: async (user, reason) => {
-    const template = emailTemplates.rejection(user, reason);
-    return sendEmail({
-      email: user.email,
-      ...template
-    });
-  }
+  sendWelcomeEmail: async (user) => sendEmail({ email: user.email, ...emailTemplates.welcome(user) }),
+  sendAppointmentNotification: async (teacher, appointment) => sendEmail({ email: teacher.email, ...emailTemplates.appointmentNotification(teacher, appointment) }),
+  sendAppointmentConfirmation: async (student, appointment) => sendEmail({ email: student.email, ...emailTemplates.appointmentConfirmation(student, appointment) }),
+  sendPasswordResetEmail: async (user, token) => sendEmail({ email: user.email, ...emailTemplates.passwordReset(user, token) }),
+  sendApprovalEmail: async (user, message) => sendEmail({ email: user.email, ...emailTemplates.approval(user, message) }),
+  sendRejectionEmail: async (user, reason) => sendEmail({ email: user.email, ...emailTemplates.rejection(user, reason) })
 };
 
 module.exports = emailService;

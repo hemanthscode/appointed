@@ -2,85 +2,66 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure upload directory exists
-const uploadDir = 'uploads';
-const avatarDir = path.join(uploadDir, 'avatars');
-const documentsDir = path.join(uploadDir, 'documents');
+const UPLOAD_DIR = 'uploads';
+const AVATAR_DIR = path.join(UPLOAD_DIR, 'avatars');
+const DOCUMENTS_DIR = path.join(UPLOAD_DIR, 'documents');
 
-[uploadDir, avatarDir, documentsDir].forEach(dir => {
+[UPLOAD_DIR, AVATAR_DIR, DOCUMENTS_DIR].forEach((dir) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 });
 
-// Storage configuration
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    let uploadPath = uploadDir;
-    
+  destination: (req, file, cb) => {
+    let uploadDir = UPLOAD_DIR;
+
     if (file.fieldname === 'avatar') {
-      uploadPath = avatarDir;
+      uploadDir = AVATAR_DIR;
     } else if (file.fieldname === 'documents') {
-      uploadPath = documentsDir;
+      uploadDir = DOCUMENTS_DIR;
     }
-    
-    cb(null, uploadPath);
+
+    cb(null, uploadDir);
   },
-  filename: function (req, file, cb) {
-    // Generate unique filename
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+  filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    const name = file.fieldname + '-' + uniqueSuffix + ext;
-    cb(null, name);
+    const baseName = file.fieldname + '-' + Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, baseName + ext);
   }
 });
 
-// File filter
 const fileFilter = (req, file, cb) => {
-  // Avatar files
+  const acceptImage = file.mimetype.startsWith('image/');
+  const docTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/jpeg',
+    'image/png',
+    'image/gif'
+  ];
+
   if (file.fieldname === 'avatar') {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Avatar must be an image file'), false);
-    }
-  }
-  // Document files
-  else if (file.fieldname === 'documents') {
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'image/jpeg',
-      'image/png',
-      'image/gif'
-    ];
-    
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type'), false);
-    }
+    cb(acceptImage ? null : new Error('Avatar must be an image file'), acceptImage);
+  } else if (file.fieldname === 'documents') {
+    cb(docTypes.includes(file.mimetype) ? null : new Error('Invalid document file type'), docTypes.includes(file.mimetype));
   } else {
     cb(new Error('Unexpected field'), false);
   }
 };
 
-// Multer configuration
 const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
+  storage,
+  fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
+    fileSize: 5 * 1024 * 1024,
     files: 5
   }
 });
 
-// Upload middleware
-const uploadMiddleware = {
+module.exports = {
   avatar: upload.single('avatar'),
   documents: upload.array('documents', 5),
   any: upload.any()
 };
-
-module.exports = uploadMiddleware;

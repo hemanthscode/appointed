@@ -14,37 +14,16 @@ const departmentSchema = new mongoose.Schema({
     uppercase: true,
     trim: true
   },
-  description: {
-    type: String,
-    maxlength: [500, 'Description cannot be more than 500 characters']
-  },
-  head: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  subjects: [{
-    name: String,
-    code: String,
-    credits: Number
-  }],
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  // Statistics
-  teacherCount: {
-    type: Number,
-    default: 0
-  },
-  studentCount: {
-    type: Number,
-    default: 0
-  }
+  description: { type: String, maxlength: [500, 'Description cannot exceed 500 characters'] },
+  head: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  subjects: [{ name: String, code: String, credits: Number }],
+  isActive: { type: Boolean, default: true },
+  teacherCount: { type: Number, default: 0 },
+  studentCount: { type: Number, default: 0 }
 }, {
   timestamps: true
 });
 
-// Indexes
 departmentSchema.index({ name: 1 });
 departmentSchema.index({ code: 1 });
 

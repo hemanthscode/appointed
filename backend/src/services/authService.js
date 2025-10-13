@@ -4,64 +4,43 @@ const User = require('../models/User');
 const authConfig = require('../config/auth');
 
 const authService = {
-  // Generate JWT tokens
-  generateTokens: (user) => {
+  generateTokens(user) {
     const payload = {
       id: user._id,
       email: user.email,
       role: user.role,
       status: user.status
     };
-
-    const accessToken = authConfig.generateToken(payload);
-    const refreshToken = authConfig.generateRefreshToken(payload);
-
     return {
-      accessToken,
-      refreshToken
+      accessToken: authConfig.generateToken(payload),
+      refreshToken: authConfig.generateRefreshToken(payload)
     };
   },
 
-  // Verify JWT token
-  verifyToken: async (token) => {
+  async verifyToken(token) {
     try {
       const decoded = authConfig.verifyToken(token);
-      
-      // Check if user still exists
       const user = await User.findById(decoded.id).select('-password');
-      if (!user) {
-        throw new Error('User not found');
-      }
-
-      // Check if user is still active
-      if (user.status !== 'active') {
-        throw new Error('User account is not active');
-      }
-
+      if (!user || user.status !== 'active') throw new Error('User not found or inactive');
       return { user, decoded };
-    } catch (error) {
+    } catch (err) {
       throw new Error('Invalid token');
     }
   },
 
-  // Hash password
-  hashPassword: async (password) => {
+  async hashPassword(password) {
     return await bcrypt.hash(password, authConfig.passwordSaltRounds);
   },
 
-  // Compare password
-  comparePassword: async (plainPassword, hashedPassword) => {
+  async comparePassword(plainPassword, hashedPassword) {
     return await bcrypt.compare(plainPassword, hashedPassword);
   },
 
-  // Generate random token for password reset
-  generateResetToken: () => {
+  generateResetToken() {
     return authConfig.generateRandomToken();
   },
 
-  // Validate password strength
-  validatePassword: (password) => {
-    const minLength = authConfig.passwordMinLength;
+  validatePassword(password) {
     const errors = [];
 
     if (!password) {
@@ -69,24 +48,20 @@ const authService = {
       return { isValid: false, errors };
     }
 
-    if (password.length < minLength) {
-      errors.push(`Password must be at least ${minLength} characters long`);
+    if (password.length < authConfig.passwordMinLength) {
+      errors.push(`Password must be at least ${authConfig.passwordMinLength} characters long`);
     }
-
     if (!/(?=.*[a-z])/.test(password)) {
       errors.push('Password must contain at least one lowercase letter');
     }
-
     if (!/(?=.*[A-Z])/.test(password)) {
       errors.push('Password must contain at least one uppercase letter');
     }
-
     if (!/(?=.*\d)/.test(password)) {
       errors.push('Password must contain at least one number');
     }
-
     if (!/(?=.*[!@#$%^&*])/.test(password)) {
-      errors.push('Password must contain at least one special character (!@#$%^&*)');
+      errors.push('Password must contain at least one special character');
     }
 
     return {
@@ -95,56 +70,29 @@ const authService = {
     };
   },
 
-  // Check if user can login (rate limiting, account status)
-  canUserLogin: async (email) => {
+  async canUserLogin(email) {
     const user = await User.findOne({ email });
-    
-    if (!user) {
-      return { canLogin: false, reason: 'User not found' };
-    }
-
-    if (user.status === 'suspended') {
-      return { canLogin: false, reason: 'Account suspended' };
-    }
-
-    if (user.status === 'inactive') {
-      return { canLogin: false, reason: 'Account inactive' };
-    }
-
-    if (user.status === 'pending') {
-      return { canLogin: false, reason: 'Account pending approval' };
-    }
-
-    // Add rate limiting check here if needed
-    // Check lockout status, failed attempts, etc.
-
+    if (!user) return { canLogin: false, reason: 'User not found' };
+    if (user.status === 'suspended') return { canLogin: false, reason: 'Account suspended' };
+    if (user.status === 'inactive') return { canLogin: false, reason: 'Account inactive' };
+    if (user.status === 'pending') return { canLogin: false, reason: 'Account pending approval' };
     return { canLogin: true, user };
   },
 
-  // Update user last login
-  updateLastLogin: async (userId) => {
-    await User.findByIdAndUpdate(userId, {
-      lastLogin: new Date()
-    });
+  async updateLastLogin(userId) {
+    await User.findByIdAndUpdate(userId, { lastLogin: new Date() });
   },
 
-  // Invalidate refresh token
-  invalidateRefreshToken: async (userId) => {
-    await User.findByIdAndUpdate(userId, {
-      $unset: { refreshToken: 1 }
-    });
+  async invalidateRefreshToken(userId) {
+    await User.findByIdAndUpdate(userId, { $unset: { refreshToken: 1 } });
   },
 
-  // Generate password reset token and save
-  createPasswordResetToken: async (email) => {
+  async createPasswordResetToken(email) {
     const user = await User.findOne({ email });
-    
-    if (!user) {
-      throw new Error('No user found with this email');
-    }
+    if (!user) throw new Error('No user found with this email');
 
-    const resetToken = authService.generateResetToken();
-    
+    const resetToken = this.generateResetToken();
+
     user.passwordResetToken = resetToken;
     user.passwordResetExpires = new Date(Date.now() + authConfig.passwordResetExpire);
     await user.save();
@@ -152,43 +100,29 @@ const authService = {
     return resetToken;
   },
 
-  // Verify password reset token
-  verifyPasswordResetToken: async (token) => {
+  async verifyPasswordResetToken(token) {
     const user = await User.findOne({
       passwordResetToken: token,
       passwordResetExpires: { $gt: Date.now() }
     });
-
-    if (!user) {
-      throw new Error('Invalid or expired reset token');
-    }
-
+    if (!user) throw new Error('Invalid or expired reset token');
     return user;
   },
 
-  // Reset password with token
-  resetPassword: async (token, newPassword) => {
-    const user = await authService.verifyPasswordResetToken(token);
-    
-    // Validate new password
-    const passwordValidation = authService.validatePassword(newPassword);
-    if (!passwordValidation.isValid) {
-      throw new Error(passwordValidation.errors.join('. '));
-    }
+  async resetPassword(token, newPassword) {
+    const user = await this.verifyPasswordResetToken(token);
+    const { isValid, errors } = this.validatePassword(newPassword);
+    if (!isValid) throw new Error(errors.join('. '));
 
-    // Hash new password
-    user.password = await authService.hashPassword(newPassword);
+    user.password = await this.hashPassword(newPassword);
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
-    
     await user.save();
 
     return user;
   },
 
-  // Check if user has permission for resource
-  checkPermission: (user, resource, action) => {
-    // Define permissions matrix
+  checkPermission(user, resource, action) {
     const permissions = {
       admin: {
         users: ['read', 'write', 'delete'],
@@ -198,32 +132,22 @@ const authService = {
         system: ['read', 'write']
       },
       teacher: {
-        users: ['read'], // Can read student profiles
-        appointments: ['read', 'write'], // Can manage their appointments
-        schedule: ['read', 'write'], // Can manage their schedule
-        messages: ['read', 'write'], // Can send/receive messages
-        students: ['read'] // Can view student list
+        users: ['read'], // can read students
+        appointments: ['read', 'write'],
+        schedule: ['read', 'write'],
+        messages: ['read', 'write'],
+        students: ['read']
       },
       student: {
-        users: ['read'], // Can read teacher profiles
-        appointments: ['read', 'write'], // Can manage their appointments
-        schedule: ['read'], // Can view teacher schedules
-        messages: ['read', 'write'], // Can send/receive messages
-        teachers: ['read'] // Can view teacher list
+        users: ['read'],
+        appointments: ['read', 'write'],
+        schedule: ['read'],
+        messages: ['read', 'write'],
+        teachers: ['read']
       }
     };
 
-    const userPermissions = permissions[user.role];
-    if (!userPermissions) {
-      return false;
-    }
-
-    const resourcePermissions = userPermissions[resource];
-    if (!resourcePermissions) {
-      return false;
-    }
-
-    return resourcePermissions.includes(action);
+    return permissions[user.role]?.[resource]?.includes(action) || false;
   }
 };
 
