@@ -1,15 +1,15 @@
 import apiService from './apiService';
 
-const getSchedule = (params) =>
-  apiService.request(`/schedule?${new URLSearchParams(params).toString()}`);
+const getSchedule = (params = {}) =>
+  apiService.request(`/schedule${params ? `?${new URLSearchParams(params).toString()}` : ''}`);
 
 const updateSchedule = (scheduleData) =>
   apiService.request('/schedule', { method: 'PUT', body: scheduleData });
 
 const getScheduleStats = () => apiService.request('/schedule/stats');
 
-const getAvailableSlots = (teacherId) =>
-  apiService.request(`/schedule/available/${teacherId}`);
+const getAvailableSlots = (teacherId, queryParams = {}) =>
+  apiService.request(`/schedule/available/${teacherId}${queryParams ? `?${new URLSearchParams(queryParams)}` : ''}`);
 
 const blockSlot = (slotData) =>
   apiService.request('/schedule/block', { method: 'POST', body: slotData });

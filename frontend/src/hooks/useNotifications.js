@@ -5,7 +5,8 @@ const NotificationContext = createContext();
 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
-  if (!context) throw new Error('useNotifications must be used within NotificationProvider');
+  if (!context)
+    throw new Error('useNotifications must be used within NotificationProvider');
   return context;
 };
 
@@ -26,7 +27,9 @@ export const NotificationProvider = ({ children }) => {
 
   const markAsRead = async (id) => {
     await notificationsService.markAsRead(id);
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    );
     setUnreadCount((count) => (count > 0 ? count - 1 : 0));
   };
 

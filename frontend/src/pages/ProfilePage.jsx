@@ -1,251 +1,225 @@
 import React, { useState } from 'react';
 import { Layout } from '../components/common';
-import { Card, Modal, Button, Badge } from '../components/ui';
+import { Card, Badge, Button, Modal, AvatarUpload } from '../components/ui';
 import useProfile from '../hooks/useProfile';
-import ProfileForm from '../components/ui/ProfileForm';
-import { motion } from 'framer-motion';
-
-const TABS = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'appointments', label: 'Appointments' },
-  { key: 'security', label: 'Security' },
-];
-
-const AppointmentList = ({ appointments }) => (
-  <div>
-    {appointments.length === 0 && (
-      <p className="text-gray-500 italic">No appointments scheduled.</p>
-    )}
-    {appointments.map((appt) => (
-      <Card key={appt._id} className="mb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-lg font-semibold">{appt.purpose.replace('-', ' ').toUpperCase()}</div>
-            <div className="text-gray-400 text-sm">
-              {appt.formattedDate} &bull; {appt.time}
-            </div>
-            <div className="text-gray-300 text-sm">
-              Teacher: {appt.teacher?.name || 'Unknown'}
-            </div>
-          </div>
-          <Badge
-            variant={
-              appt.status === 'confirmed'
-                ? 'success'
-                : appt.status === 'completed'
-                ? 'primary'
-                : appt.status === 'cancelled'
-                ? 'danger'
-                : appt.status === 'rejected'
-                ? 'warning'
-                : 'secondary'
-            }
-            size="medium"
-          >
-            {appt.status.charAt(0).toUpperCase() + appt.status.slice(1)}
-          </Badge>
-        </div>
-      </Card>
-    ))}
-  </div>
-);
-
-const ProfileOverview = ({ user, onEdit }) => (
-  <motion.section
-    className="bg-gray-900 border border-gray-800 rounded-2xl shadow-lg p-8"
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-  >
-    <div className="flex items-center space-x-6 mb-8">
-      <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-800 flex-shrink-0 shadow-md">
-        {user.avatar ? (
-          <img
-            src={user.avatarUrl || `/uploads/avatars/${user.avatar}`}
-            alt="Avatar"
-            className="object-cover w-full h-full"
-            draggable={false}
-          />
-        ) : (
-          <span className="block w-full h-full flex items-center justify-center text-3xl font-bold text-gray-400 select-none">
-            {user.name.charAt(0)}
-          </span>
-        )}
-      </div>
-      <div>
-        <div className="text-2xl font-bold text-white select-none">{user.name}</div>
-        <div className="text-gray-400 select-text">{user.email}</div>
-        <div className="text-gray-500 text-sm mt-1 select-none">
-          {user.role.charAt(0).toUpperCase() + user.role.slice(1)} &bull; {user.department}{' '}
-          {user.year && (
-            <>
-              &bull; {user.year}
-            </>
-          )}
-        </div>
-      </div>
-      <div className="ml-auto">
-        <Button variant="primary" size="small" onClick={onEdit}>
-          Edit Profile
-        </Button>
-      </div>
-    </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 select-none">
-      {[
-        { label: 'Phone', value: user.phone || '—' },
-        { label: 'Address', value: user.address || '—' },
-        { label: 'Bio', value: user.bio || '—', className: 'whitespace-pre-line' },
-        { label: 'Office', value: user.office || '—' },
-        { label: 'Status', value: <Badge variant={user.status === 'active' ? 'success' : 'danger'}>{user.status}</Badge> },
-        { label: 'Joined', value: new Date(user.joinedDate).toLocaleDateString() },
-      ].map(({ label, value, className }, idx) => (
-        <div key={idx}>
-          <div className="mb-2 text-gray-400 font-medium">{label}</div>
-          <div className={`text-white ${className || ''}`}>{value}</div>
-        </div>
-      ))}
-    </div>
-  </motion.section>
-);
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import ProfileForm from '../components/forms/ProfileForm';
 
 const ProfilePage = () => {
-  const { profile: user, loading, error, updateProfile, uploadAvatar, changePassword } = useProfile();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [formError, setFormError] = useState(null);
-  const [formSuccess, setFormSuccess] = useState(null);
+  const { user, logout } = useAuth();
+  const toast = useToast();
 
-  // Control modals exclusively
+  const {
+    profile,
+    loading,
+    error,
+    updateProfile,
+    uploadAvatar,
+    changePassword,
+  } = useProfile();
+
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 
-  const openEditModal = () => {
-    setEditModalOpen(true);
-    setPasswordModalOpen(false);
-  };
-
-  const openPasswordModal = () => {
-    setPasswordModalOpen(true);
-    setEditModalOpen(false);
-  };
-
-  const closeModals = () => {
-    setEditModalOpen(false);
-    setPasswordModalOpen(false);
-  };
-
   const handleSave = async (data) => {
-    setFormError(null);
-    setFormSuccess(null);
     try {
       await updateProfile(data);
-      setFormSuccess('Profile updated successfully.');
-      closeModals();
+      toast.addToast('Profile updated successfully.', 'success', 2000);
+      setEditModalOpen(false);
     } catch (err) {
-      setFormError(err.message);
+      toast.addToast(err.message || 'Failed to update profile.', 'error', 2000);
     }
   };
 
   const handleAvatarUpload = async (file) => {
-    setFormError(null);
-    setFormSuccess(null);
     try {
       await uploadAvatar(file);
-      setFormSuccess('Avatar updated successfully.');
+      toast.addToast('Avatar updated successfully.', 'success', 2000);
     } catch (err) {
-      setFormError(err.message);
+      toast.addToast(err.message || 'Avatar upload failed.', 'error', 2000);
     }
   };
 
-  const handlePasswordChange = async (passwordData) => {
-    setFormError(null);
-    setFormSuccess(null);
+  const handlePasswordChange = async (passwords) => {
     try {
-      await changePassword(passwordData);
-      setFormSuccess('Password changed successfully.');
-      closeModals();
+      await changePassword(passwords);
+      toast.addToast('Password changed successfully.', 'success', 2000);
+      setPasswordModalOpen(false);
     } catch (err) {
-      setFormError(err.message);
+      toast.addToast(err.message || 'Password change failed.', 'error', 2000);
     }
   };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.addToast('Logged out successfully.', 'success', 2000);
+    } catch {
+      toast.addToast('Logout failed.', 'error', 2000);
+    }
+  };
+
+  if (loading)
+    return (
+      <Layout headerTitle="My Profile">
+        <p className="p-12 text-center text-white text-lg">Loading profile...</p>
+      </Layout>
+    );
+
+  if (error)
+    return (
+      <Layout headerTitle="My Profile">
+        <p className="p-12 text-center text-red-500 text-lg">Error: {error}</p>
+      </Layout>
+    );
+
+  if (!profile)
+    return (
+      <Layout headerTitle="My Profile">
+        <p className="p-12 text-center text-white text-lg">No profile data available.</p>
+      </Layout>
+    );
 
   return (
-    <Layout>
-      <div className="max-w-4xl mx-auto pt-12 px-4 sm:px-6">
-        <Card className="p-0 bg-gray-900 border border-gray-800 rounded-2xl shadow-xl">
-          {/* Tabs */}
-          <nav className="flex border-b border-gray-800">
-            {TABS.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={`flex-1 py-4 text-center font-medium text-lg focus:outline-none transition-colors ${
-                  activeTab === key
-                    ? 'border-b-2 border-blue-500 text-blue-400'
-                    : 'border-b-2 border-transparent text-gray-400 hover:text-blue-300'
-                }`}
-                type="button"
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
+    <Layout headerTitle="My Profile">
+      <div className="max-w-5xl mx-auto h-full p-8 text-white flex flex-col md:flex-row gap-12 select-none min-h-[80vh]">
+        {/* LEFT: Avatar & Basics */}
+        <Card className="w-full md:w-1/3 flex flex-col items-center justify-center space-y-8 bg-gradient-to-br from-gray-900 to-black rounded-3xl p-6 shadow-lg">
+          <AvatarUpload
+            currentAvatar={profile.avatarUrl || profile.avatar}
+            onFileSelect={handleAvatarUpload}
+            disabled={loading}
+          />
+          <h2 className="text-3xl font-bold">{profile.name || user?.name || 'User'}</h2>
+          <p className="text-gray-400">{profile.email || user?.email}</p>
+          <Badge
+            variant={profile.status === 'active' ? 'success' : 'danger'}
+            className="uppercase tracking-wider"
+          >
+            {profile.role?.charAt(0).toUpperCase() + profile.role?.slice(1) || 'User'}
+          </Badge>
 
-          <div className="p-6">
-            {loading && <div className="text-gray-400 my-12 text-center">Loading...</div>}
-            {error && <div className="mb-4 text-red-500 font-semibold">{error}</div>}
-            {formError && <div className="mb-4 text-red-500 font-semibold">{formError}</div>}
-            {formSuccess && <div className="mb-4 text-green-500 font-semibold">{formSuccess}</div>}
-
-            {activeTab === 'overview' && user && (
-              <ProfileOverview user={user} onEdit={openEditModal} />
-            )}
-
-            {activeTab === 'appointments' && user && (
-              <AppointmentList appointments={user.appointments || []} />
-            )}
-
-            {activeTab === 'security' && (
-              <motion.section
-                className="bg-gray-900 border border-gray-800 rounded-xl p-8 shadow"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-              >
-                <div className="flex flex-col items-start gap-6">
-                  <div>
-                    <span className="font-medium text-gray-300 mr-2 select-none">Account Status:</span>
-                    <Badge variant={user?.status === 'active' ? 'success' : 'danger'}>
-                      {user?.status}
-                    </Badge>
-                  </div>
-                  <Button variant="danger" onClick={openPasswordModal} size="medium">
-                    Change Password
-                  </Button>
-                </div>
-              </motion.section>
-            )}
+          <div className="w-full space-y-3">
+            <Button variant="primary" fullWidth onClick={() => window.location.href = '/dashboard'}>
+              Go to Dashboard
+            </Button>
+            <Button variant="secondary" fullWidth onClick={() => window.location.href = '/teachers'}>
+              Teachers List
+            </Button>
+            <Button variant="danger" fullWidth onClick={handleLogout}>
+              Logout
+            </Button>
           </div>
-
-          {/* Modals */}
-          <Modal isOpen={editModalOpen} onClose={closeModals} title="Edit Profile" size="full" showCloseButton>
-            <ProfileForm
-              profile={user}
-              loading={loading}
-              onSave={handleSave}
-              onAvatarUpload={handleAvatarUpload}
-              hidePassword
-              onCancel={closeModals}
-            />
-          </Modal>
-
-          <Modal isOpen={passwordModalOpen} onClose={closeModals} title="Change Password" size="small" showCloseButton>
-            <ProfileForm
-              profile={user}
-              loading={loading}
-              onChangePassword={handlePasswordChange}
-              passwordOnly
-              onCancel={closeModals}
-            />
-          </Modal>
         </Card>
+
+        {/* RIGHT: Info & Actions */}
+        <div className="w-full md:w-2/3 flex flex-col justify-between h-full">
+          <Card className="bg-gray-900 rounded-3xl p-6 shadow-lg overflow-y-auto">
+            <h3 className="text-2xl font-semibold mb-6">Profile Details</h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-6">
+              <div>
+                <span className="font-semibold text-gray-400">Department:</span>
+                <p>{profile.department || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="font-semibold text-gray-400">Year:</span>
+                <p>{profile.year || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="font-semibold text-gray-400">Phone:</span>
+                <p>{profile.phone || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="font-semibold text-gray-400">Address:</span>
+                <p>{profile.address || 'N/A'}</p>
+              </div>
+              <div className="sm:col-span-2">
+                <span className="font-semibold text-gray-400">Bio:</span>
+                <p className="whitespace-pre-wrap">{profile.bio || 'No biography provided.'}</p>
+              </div>
+              <div>
+                <span className="font-semibold text-gray-400">Office:</span>
+                <p>{profile.office || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="font-semibold text-gray-400">Joined On:</span>
+                <p>{profile.joinedDate ? new Date(profile.joinedDate).toLocaleDateString() : 'N/A'}</p>
+              </div>
+              <div>
+                <span className="font-semibold text-gray-400">Last Login:</span>
+                <p>{profile.lastLogin ? new Date(profile.lastLogin).toLocaleString() : 'N/A'}</p>
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-wrap gap-4 justify-start">
+              <Button variant="primary" onClick={() => setEditModalOpen(true)}>
+                Edit Profile
+              </Button>
+
+              <Button variant="secondary" onClick={() => setPasswordModalOpen(true)}>
+                Change Password
+              </Button>
+
+              <Button
+                variant="warning"
+                onClick={() => (window.location.href = '/forgot-password')}
+              >
+                Forgot Password
+              </Button>
+
+              <Button
+                variant="secondary"
+                onClick={() => window.location.href = '/appointments'}
+              >
+                My Appointments
+              </Button>
+
+              <Button
+                variant="secondary"
+                onClick={() => window.location.href = '/messages'}
+              >
+                Messages
+              </Button>
+            </div>
+          </Card>
+        </div>
+
+        {/* PROFILE EDIT MODAL */}
+        <Modal
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          title="Edit Profile"
+          size="full"
+          showCloseButton
+        >
+          <ProfileForm
+            profile={profile}
+            loading={loading}
+            onSave={handleSave}
+            onAvatarUpload={handleAvatarUpload}
+            hidePassword
+            onCancel={() => setEditModalOpen(false)}
+          />
+        </Modal>
+
+        {/* CHANGE PASSWORD MODAL */}
+        <Modal
+          isOpen={passwordModalOpen}
+          onClose={() => setPasswordModalOpen(false)}
+          title="Change Password"
+          size="small"
+          showCloseButton
+        >
+          <ProfileForm
+            profile={profile}
+            loading={loading}
+            onChangePassword={handlePasswordChange}
+            passwordOnly
+            onCancel={() => setPasswordModalOpen(false)}
+          />
+        </Modal>
       </div>
     </Layout>
   );

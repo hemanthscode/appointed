@@ -1,8 +1,9 @@
+// pages/TeachersPage.jsx
 import React, { useState } from 'react';
 import { Layout } from '../components/common';
 import { Card, Button, Select, Input, Badge } from '../components/ui';
 import useTeachers from '../hooks/useTeachers';
-import { DEPARTMENTS } from '../utils';
+import { DEPARTMENTS } from '../utils/constants';
 import { useToast } from '../contexts/ToastContext';
 
 const TeachersPage = () => {

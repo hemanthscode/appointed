@@ -1,4 +1,3 @@
-// Date and Time utilities
 export const formatDate = (date, options = { year: 'numeric', month: 'long', day: 'numeric' }) =>
   new Date(date).toLocaleDateString('en-US', options);
 
@@ -21,9 +20,11 @@ export const formatDateTime = (date, time) => {
   });
 };
 
-export const isToday = (date) => new Date(date).toDateString() === new Date().toDateString();
+export const isToday = (date) =>
+  new Date(date).toDateString() === new Date().toDateString();
 
-export const isFuture = (date, time) => new Date(`${date} ${time}`) > new Date();
+export const isFuture = (date, time) =>
+  new Date(`${date} ${time}`) > new Date();
 
 export const getRelativeTime = (date) => {
   const now = new Date();
@@ -37,7 +38,6 @@ export const getRelativeTime = (date) => {
   return formatDate(date, { month: 'short', day: 'numeric' });
 };
 
-// Text utilities
 export const truncateText = (text, maxLength = 50) =>
   !text ? '' : text.length <= maxLength ? text : text.slice(0, maxLength) + '...';
 
@@ -57,7 +57,6 @@ export const capitalizeFirst = (text) =>
 export const capitalizeWords = (text) =>
   !text ? '' : text.split(' ').map((w) => capitalizeFirst(w)).join(' ');
 
-// Debounce utility
 export const debounce = (func, wait) => {
   let timeout;
   return function executedFunction(...args) {
@@ -66,17 +65,17 @@ export const debounce = (func, wait) => {
   };
 };
 
-// Nested value helper
 export const getNestedValue = (obj, path) =>
   path.split('.').reduce((current, key) => current?.[key], obj);
 
-// Array helpers - Filter and sort
 export const filterBySearch = (items, searchTerm, fields = []) => {
   if (!searchTerm || !Array.isArray(items)) return items;
   const term = searchTerm.toLowerCase().trim();
   if (!term) return items;
   return items.filter((item) =>
-    fields.some((field) => String(getNestedValue(item, field)).toLowerCase().includes(term))
+    fields.some((field) =>
+      String(getNestedValue(item, field)).toLowerCase().includes(term)
+    )
   );
 };
 
@@ -91,10 +90,19 @@ export const sortByField = (items, field, direction = 'asc') => {
   });
 };
 
-// Other utilities (clone, removal, etc.)
-export const removeEmptyFields = (obj) => Object.fromEntries(Object.entries(obj).filter(([_, v]) => v != null && v !== ''));
+export const removeEmptyFields = (obj) =>
+  Object.fromEntries(
+    Object.entries(obj).filter(([_, v]) => v != null && v !== '')
+  );
 
-export const deepClone = (obj) => (obj === null || typeof obj !== 'object' ? obj : Array.isArray(obj) ? obj.map(deepClone) : Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, deepClone(v)])));
+export const deepClone = (obj) =>
+  obj === null || typeof obj !== 'object'
+    ? obj
+    : Array.isArray(obj)
+    ? obj.map(deepClone)
+    : Object.fromEntries(
+        Object.entries(obj).map(([k, v]) => [k, deepClone(v)])
+      );
 
 export const buildQueryString = (params) => {
   const cleaned = removeEmptyFields(params);
@@ -150,6 +158,7 @@ export const getStatusVariant = (status) => {
   return variants[status?.toLowerCase()] || 'info';
 };
 
-export const formatNumber = (num, options = {}) => (typeof num !== 'number' ? '0' : new Intl.NumberFormat('en-US', options).format(num));
+export const formatNumber = (num, options = {}) =>
+  typeof num !== 'number' ? '0' : new Intl.NumberFormat('en-US', options).format(num);
 
 export const clamp = (value, min, max) => Math.min(Math.max(value, min), max);

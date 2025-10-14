@@ -1,6 +1,7 @@
+// pages/ForgotPasswordPage.jsx
 import React, { useState } from 'react';
 import { Layout } from '../components/common';
-import { Button, Input } from '../components/ui';
+import { Input, Button } from '../components/ui';
 import authService from '../services/authService';
 import { useToast } from '../contexts/ToastContext';
 

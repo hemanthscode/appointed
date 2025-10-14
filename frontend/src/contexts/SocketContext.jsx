@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect } from 'react';
-import {socketService} from '../services';
+import socketService from '../services/socketService';
 import { useAuth } from './AuthContext';
 
 const SocketContext = createContext();
@@ -17,7 +17,6 @@ export const SocketProvider = ({ children }) => {
     if (user) {
       socketService.initialize(user.token || user.accessToken);
     }
-
     return () => {
       socketService.disconnect();
     };

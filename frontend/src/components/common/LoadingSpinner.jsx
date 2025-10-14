@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ANIMATIONS } from '../../utils';
+import { ANIMATIONS } from '../../utils/animations';
 
 const LoadingSpinner = ({ size = 'medium', color = 'white', text = null, className = '' }) => {
   const sizeClasses = {

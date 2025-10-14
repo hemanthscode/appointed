@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
 import Button from './Button';
+import { X } from 'lucide-react';
 
 const sizeClasses = {
   small: 'max-w-md',

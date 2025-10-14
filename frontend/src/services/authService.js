@@ -1,33 +1,32 @@
 import apiService from './apiService';
 
 const login = async (credentials) => {
-  const data = await apiService.request('/auth/login', {
+  const response = await apiService.request('/auth/login', {
     method: 'POST',
     body: credentials,
   });
 
   return {
-    user: data.user,
-    token: data.token,
-    refreshToken: data.refreshToken,
+    user: response.user,
+    token: response.token,
+    refreshToken: response.refreshToken,
   };
 };
 
 const register = async (userData) => {
-  // Clean optional empty fields before sending to backend
   const payload = { ...userData };
   if (payload.year === '') delete payload.year;
   if (payload.subject === '') delete payload.subject;
 
-  const data = await apiService.request('/auth/register', {
+  const response = await apiService.request('/auth/register', {
     method: 'POST',
     body: payload,
   });
 
   return {
-    user: data.user,
-    token: data.token,
-    refreshToken: data.refreshToken,
+    user: response.user,
+    token: response.token,
+    refreshToken: response.refreshToken,
   };
 };
 
@@ -36,16 +35,30 @@ const logout = async () => {
 };
 
 const refreshToken = async (refreshToken) => {
-  const data = await apiService.request('/auth/refresh', {
+  const response = await apiService.request('/auth/refresh', {
     method: 'POST',
     body: { refreshToken },
   });
 
   return {
-    user: data.user,
-    token: data.token,
-    refreshToken: data.refreshToken,
+    user: response.user,
+    token: response.token,
+    refreshToken: response.refreshToken,
   };
+};
+
+const forgotPassword = async (email) => {
+  return apiService.request('/auth/forgot-password', {
+    method: 'POST',
+    body: { email },
+  });
+};
+
+const resetPassword = async (token, password) => {
+  return apiService.request('/auth/reset-password', {
+    method: 'POST',
+    body: { token, password },
+  });
 };
 
 export default {
@@ -53,4 +66,6 @@ export default {
   register,
   logout,
   refreshToken,
+  forgotPassword,
+  resetPassword,
 };

@@ -1,42 +1,66 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Input, Select, Textarea, Button } from '../ui';
 import { PURPOSES } from '../../utils/constants';
 import { validateAppointment } from '../../utils/validators';
-import { useTeachers } from '../../hooks';
+import useTeachers from '../../hooks/useTeachers';
 import { useTimeSlots } from '../../hooks/useMetadata';
 
-const AppointmentForm = ({ initialData = {}, onSubmit, loading, onCancel }) => {
+const shallowEqual = (obj1, obj2) => {
+  if (!obj1 || !obj2) return false;
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+  if (keys1.length !== keys2.length) return false;
+  return keys1.every(key => obj1[key] === obj2[key]);
+};
+
+const AppointmentForm = ({ initialData = {}, onSubmit, loading = false, onCancel }) => {
   const [formData, setFormData] = useState({
     teacher: '',
+    subject: '',
     date: '',
     time: '',
     purpose: '',
     message: '',
-    ...initialData,
+    ...initialData
   });
-  const [errors, setErrors] = useState({});
 
-  // Load teachers and time slots from hooks
-  const { teachers, loading: teachersLoading } = useTeachers();
-  const { timeSlots, loading: timeSlotsLoading } = useTimeSlots();
+  const [errors, setErrors] = useState({});
+  const prevInitialData = useRef(initialData);
+
+  const { teachers = [], loading: teachersLoading } = useTeachers();
+  const { timeSlots = [], loading: timeSlotsLoading } = useTimeSlots();
 
   useEffect(() => {
-    setFormData(prev => ({ ...prev, ...initialData }));
+    if (!shallowEqual(initialData, prevInitialData.current)) {
+      setFormData(prev => ({ ...prev, ...initialData }));
+      prevInitialData.current = initialData;
+    }
   }, [initialData]);
 
-  const handleChange = e => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      if (prev[name] === value) return prev;
+      return { ...prev, [name]: value };
+    });
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
   };
 
-  const handleSubmit = e => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     const validation = validateAppointment(formData);
-    if (!validation.isValid) {
-      setErrors(validation.errors);
+    const updatedErrors = { ...validation.errors };
+
+    // Subject is required when purpose involves academic or project help
+    if (!formData.subject?.trim()) {
+      updatedErrors.subject = 'Subject is required';
+    }
+
+    if (Object.keys(updatedErrors).length > 0) {
+      setErrors(updatedErrors);
       return;
     }
+
     setErrors({});
     onSubmit(formData);
   };
@@ -53,6 +77,16 @@ const AppointmentForm = ({ initialData = {}, onSubmit, loading, onCancel }) => {
         error={errors.teacher}
         required
         disabled={loading || teachersLoading}
+      />
+      <Input
+        label="Subject"
+        name="subject"
+        value={formData.subject}
+        onChange={handleChange}
+        placeholder="Enter Subject"
+        error={errors.subject}
+        required
+        disabled={loading}
       />
       <Input
         label="Date"
@@ -91,12 +125,28 @@ const AppointmentForm = ({ initialData = {}, onSubmit, loading, onCancel }) => {
         name="message"
         value={formData.message}
         onChange={handleChange}
+        placeholder="Add a note or question (optional)"
         error={errors.message}
         disabled={loading}
+        maxLength={500}
       />
-      <div className="flex justify-between">
-        <Button variant="secondary" onClick={onCancel} disabled={loading}>Cancel</Button>
-        <Button type="submit" variant="primary" loading={loading}>Submit</Button>
+      <div className="flex justify-between items-center pt-4">
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onCancel}
+          disabled={loading}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          variant="primary"
+          loading={loading}
+          disabled={loading}
+        >
+          Submit
+        </Button>
       </div>
     </form>
   );

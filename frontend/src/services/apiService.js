@@ -4,6 +4,10 @@ const defaultHeaders = {
   'Content-Type': 'application/json',
 };
 
+/**
+ * Makes an API request with appropriate headers and body formatting.
+ * Handles JSON parsing and error throwing.
+ */
 async function request(endpoint, { method = 'GET', body, headers = {}, ...customConfig } = {}) {
   const token = localStorage.getItem('token');
 
@@ -18,12 +22,13 @@ async function request(endpoint, { method = 'GET', body, headers = {}, ...custom
   };
 
   if (body && method.toUpperCase() !== 'GET') {
-    config.body = JSON.stringify(body);
+    config.body = body instanceof FormData ? body : JSON.stringify(body);
+    if (body instanceof FormData) delete config.headers['Content-Type'];
   }
 
   const response = await fetch(`${appConfig.apiBaseUrl}/api${endpoint}`, config);
-  const text = await response.text();
 
+  const text = await response.text();
   let data;
   try {
     data = text ? JSON.parse(text) : {};
@@ -38,6 +43,7 @@ async function request(endpoint, { method = 'GET', body, headers = {}, ...custom
     throw errObj;
   }
 
+  // Unwrap data property or return full data
   return data.data ?? data;
 }
 

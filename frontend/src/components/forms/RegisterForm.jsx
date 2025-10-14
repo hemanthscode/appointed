@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Input, Select, Button } from '../ui';
-import { validateRegisterForm } from '../../utils/validators';
 import { DEPARTMENTS, USER_YEARS } from '../../utils/constants';
 import { useSubjects } from '../../hooks/useMetadata';
+import { validateRegisterForm } from '../../utils/validators';
 
 const RegisterForm = ({ onSubmit, loading = false }) => {
   const [formData, setFormData] = useState({
@@ -14,11 +14,9 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
     year: '',
     subject: '',
   });
-  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverErrors, setServerErrors] = useState({});
 
-  // Load subjects for selected department
   const { subjects, loading: subjectsLoading } = useSubjects(formData.department);
 
   useEffect(() => {
@@ -113,28 +111,17 @@ const RegisterForm = ({ onSubmit, loading = false }) => {
         disabled={loading}
       />
 
-      <div className="relative">
-        <Input
-          label="Password"
-          type={showPassword ? 'text' : 'password'}
-          name="password"
-          value={formData.password}
-          onChange={handleInputChange}
-          placeholder="Enter your password"
-          error={errors.password || serverErrors.password}
-          required
-          disabled={loading}
-        />
-        <button
-          type="button"
-          onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-3 top-[38px] text-gray-400"
-          disabled={loading}
-          aria-label={showPassword ? 'Hide password' : 'Show password'}
-        >
-          {showPassword ? '🙈' : '👁️'}
-        </button>
-      </div>
+      <Input
+        label="Password"
+        type="password"
+        name="password"
+        value={formData.password}
+        onChange={handleInputChange}
+        placeholder="Enter your password"
+        error={errors.password || serverErrors.password}
+        required
+        disabled={loading}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Select

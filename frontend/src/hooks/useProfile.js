@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import {userService} from '../services';
 import { useAuth } from '../contexts/AuthContext';
+import userService from '../services/userService';
 
 const useProfile = () => {
   const { user, updateUserProfile } = useAuth();
@@ -12,11 +12,12 @@ const useProfile = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await userService.getProfile();
-      setProfile(data.user);
-      updateUserProfile(data.user);
+      const userObj = await userService.getProfile();
+      setProfile(userObj);
+      updateUserProfile(userObj);
     } catch (err) {
       setError(err.message || 'Failed to load profile');
+      console.error('Load profile error:', err);
     } finally {
       setLoading(false);
     }
@@ -30,12 +31,13 @@ const useProfile = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await userService.updateProfile(updatedData);
-      setProfile(data.user);
-      updateUserProfile(data.user);
-      return data.user;
+      const userObj = await userService.updateProfile(updatedData);
+      setProfile(userObj);
+      updateUserProfile(userObj);
+      return userObj;
     } catch (err) {
       setError(err.message || 'Failed to update profile');
+      console.error('Update profile error:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -47,11 +49,13 @@ const useProfile = () => {
     setError(null);
     try {
       const data = await userService.uploadAvatar(file);
-      setProfile((prev) => ({ ...prev, avatar: data.avatar, avatarUrl: data.avatarUrl }));
-      updateUserProfile({ ...profile, avatar: data.avatar, avatarUrl: data.avatarUrl });
+      const updatedProfile = { ...profile, avatar: data.avatar, avatarUrl: data.avatarUrl };
+      setProfile(updatedProfile);
+      updateUserProfile(updatedProfile);
       return data;
     } catch (err) {
       setError(err.message || 'Failed to upload avatar');
+      console.error('Upload avatar error:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -66,6 +70,7 @@ const useProfile = () => {
       return data;
     } catch (err) {
       setError(err.message || 'Failed to change password');
+      console.error('Change password error:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -83,4 +88,4 @@ const useProfile = () => {
   };
 };
 
-export default useProfile
+export default useProfile;

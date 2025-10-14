@@ -12,8 +12,13 @@ const useTeachers = (filters = { page: 1, limit: 10 }) => {
     setError(null);
     try {
       const data = await userService.getTeachers(params);
-      setTeachers(data.teachers);
-      setPagination(data.pagination);
+      if (Array.isArray(data)) {
+        setTeachers(data);
+        setPagination({});
+      } else {
+        setTeachers(data.teachers || []);
+        setPagination(data.pagination || {});
+      }
     } catch (err) {
       setError(err.message || 'Failed to load teachers');
     } finally {

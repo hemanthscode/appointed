@@ -1,0 +1,23 @@
+{
+  "auto-run-command.rules": [
+    {
+      "condition": "workspaceFolder == 'appointed'",
+      "command": "workbench.action.terminal.new",
+      "repeat": 1
+    },
+    {
+      "condition": "workspaceFolder == 'appointed'",
+      "command": "workbench.action.terminal.sendSequence",
+      "args": { "text": "powershell -NoLogo -NoExit -Command Set-Location -LiteralPath 'frontend'\n" }
+    },
+    {
+      "condition": "workspaceFolder == 'appointed'",
+      "command": "workbench.action.terminal.split"
+    },
+    {
+      "condition": "workspaceFolder == 'appointed'",
+      "command": "workbench.action.terminal.sendSequence",
+      "args": { "text": "powershell -NoLogo -NoExit -Command Set-Location -LiteralPath 'backend'\n" }
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Input, AvatarUpload, Textarea } from './index';
+import { Button, Input, AvatarUpload, Textarea } from '../ui';
 
 const ProfileForm = ({
   profile,
@@ -9,6 +9,7 @@ const ProfileForm = ({
   hidePassword = false,
   passwordOnly = false,
   onCancel,
+  onChangePassword,
 }) => {
   const [formData, setFormData] = useState({
     name: profile.name || '',
@@ -39,7 +40,7 @@ const ProfileForm = ({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (passwordOnly) onChangePassword(passwords);
+    if (passwordOnly && onChangePassword) onChangePassword(passwords);
     else onSave(formData);
   };
 
@@ -96,7 +97,6 @@ const ProfileForm = ({
       noValidate
     >
       <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-8">
-        {/* Left: Form Fields */}
         <div className="space-y-6">
           <Input
             label="Full Name"
@@ -136,7 +136,6 @@ const ProfileForm = ({
           />
         </div>
 
-        {/* Right: Avatar upload */}
         <div className="flex flex-col items-center space-y-6">
           <AvatarUpload
             currentAvatar={profile.avatarUrl || profile.avatar}

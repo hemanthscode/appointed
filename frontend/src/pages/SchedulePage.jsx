@@ -1,9 +1,10 @@
+// pages/SchedulePage.jsx
 import React, { useState } from 'react';
 import { Layout } from '../components/common';
-import { Card, Modal, Button, Badge } from '../components/ui';
-import {useSchedule} from '../hooks';
-import {ScheduleForm} from '../components/forms';
-import {scheduleService} from '../services';
+import { Card, Button, Modal, Badge } from '../components/ui';
+import { useSchedule } from '../hooks';
+import ScheduleForm from '../components/forms/ScheduleForm';
+import scheduleService from '../services/scheduleService';
 
 const SchedulePage = () => {
   const { schedule, stats, loading, statsLoading, error, statsError, refreshSchedule, refreshStats } = useSchedule();
@@ -67,20 +68,12 @@ const SchedulePage = () => {
         {actionError && <div className="text-red-600">{actionError}</div>}
 
         <div className="flex space-x-8 mb-6">
-          <Badge variant="info" size="medium">
-            Total Slots: {stats.totalSlots ?? '-'}
-          </Badge>
-          <Badge variant="success" size="medium">
-            Available: {stats.availableSlots ?? '-'}
-          </Badge>
-          <Badge variant="warning" size="medium">
-            Blocked: {stats.blockedSlots ?? '-'}
-          </Badge>
+          <Badge variant="info" size="medium">Total Slots: {stats.totalSlots ?? '-'}</Badge>
+          <Badge variant="success" size="medium">Available: {stats.availableSlots ?? '-'}</Badge>
+          <Badge variant="warning" size="medium">Blocked: {stats.blockedSlots ?? '-'}</Badge>
         </div>
 
-        <Button onClick={() => openModal()} variant="primary">
-          Add Slot
-        </Button>
+        <Button onClick={() => openModal()} variant="primary">Add Slot</Button>
 
         {loading ? (
           <div className="text-center text-gray-400 mt-12">Loading schedule...</div>

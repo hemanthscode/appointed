@@ -1,7 +1,8 @@
+// pages/TeachersList.jsx
 import React from 'react';
 import { Layout } from '../components/common';
 import { Card, Pagination } from '../components/ui';
-import { TeacherCard } from '../components/cards'
+import TeacherCard from '../components/cards/TeacherCard';
 import useTeachers from '../hooks/useTeachers';
 
 const TeachersList = () => {
@@ -21,7 +22,7 @@ const TeachersList = () => {
             </Card>
           ))
         )}
-        <Pagination pagination={pagination} onChange={reload} />
+        <Pagination page={pagination.page} totalPages={pagination.totalPages} onPageChange={reload} />
       </div>
     </Layout>
   );

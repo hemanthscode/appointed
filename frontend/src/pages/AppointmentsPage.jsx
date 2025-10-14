@@ -1,3 +1,4 @@
+// pages/AppointmentsPage.jsx
 import React, { useState } from 'react';
 import { Layout } from '../components/common';
 import AppointmentCard from '../components/cards/AppointmentCard';
@@ -80,24 +81,23 @@ const AppointmentsPage = () => {
         {actionError && <div className="text-red-600">{actionError}</div>}
 
         {loading ? (
-          <div className="text-center text-gray-500 py-20">Loading...</div>
-        ) : appointments.length === 0 ? (
-          <p className="text-gray-500 text-center italic">No appointments found.</p>
-        ) : (
-          appointments.map((appt) => (
-            <AppointmentCard
-              key={appt._id}
-              appointment={appt}
-              userRole={userRole}
-              onApprove={(id) => handleAction(id, appointmentService.approveAppointment)}
-              onReject={(id) => handleAction(id, appointmentService.rejectAppointment)}
-              onCancel={(id) => handleAction(id, appointmentService.cancelAppointment)}
-              onComplete={(id) => handleAction(id, appointmentService.completeAppointment)}
-              onRate={(id) => handleAction(id, appointmentService.rateAppointment)}
-            />
-          ))
-        )}
-
+  <div className="text-center text-gray-500 py-20">Loading...</div>
+) : !appointments?.length ? (
+  <p className="text-gray-500 text-center italic">No appointments found.</p>
+) : (
+  appointments.map((appt) => (
+    <AppointmentCard
+      key={appt._id}
+      appointment={appt}
+      userRole={userRole}
+      onApprove={(id) => handleAction(id, appointmentService.approveAppointment)}
+      onReject={(id) => handleAction(id, appointmentService.rejectAppointment)}
+      onCancel={(id) => handleAction(id, appointmentService.cancelAppointment)}
+      onComplete={(id) => handleAction(id, appointmentService.completeAppointment)}
+      onRate={(id) => handleAction(id, appointmentService.rateAppointment)}
+    />
+  ))
+)}
         <Pagination pagination={pagination} onChange={(page) => refresh({ ...pagination, page })} />
 
         {/* Create/Edit Appointment Modal */}
@@ -114,7 +114,7 @@ const AppointmentsPage = () => {
             loading={actionLoading}
             onCancel={closeModals}
             // You might want to pass a list of teachers fetched elsewhere or from context
-            teachers={[]} 
+            teachers={[]}
           />
         </Modal>
       </div>

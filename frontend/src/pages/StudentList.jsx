@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+// pages/StudentList.jsx
+import React, { useState, useEffect } from 'react';
 import userService from '../services/userService';
-import { DEPARTMENTS, USER_YEARS } from '../utils';
-import { Button, Select, Input, Card, Pagination } from '../components/ui';
+import { DEPARTMENTS, USER_YEARS } from '../utils/constants';
+import { Card, Input, Pagination, Select } from '../components/ui';
 
-const StudentsList = () => {
+const StudentList = () => {
   const [students, setStudents] = useState([]);
   const [filters, setFilters] = useState({ department: '', year: '', search: '', page: 1, limit: 10 });
   const [pagination, setPagination] = useState({ totalPages: 1, page: 1 });
@@ -68,4 +69,4 @@ const StudentsList = () => {
   );
 };
 
-export default StudentsList;
+export default StudentList;

@@ -1,164 +1,204 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/common';
 import { Card, Button, Pagination } from '../components/ui';
-import { useUsers, useApprovals, useSystemStats, useSettings } from '../hooks/useAdminUsers';
-import adminService from '../services/adminService';
+import { useUsers, useApprovals, useSystemStats } from '../hooks/useAdminUsers';
+import { useToast } from '../contexts/ToastContext';
 
-const formatDate = (dateStr) => {
-  const date = new Date(dateStr);
-  return date.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-};
-
-const labelMap = {
-  students: 'Students',
-  teachers: 'Teachers',
-  admins: 'Admins',
-  total: 'Total',
-  active: 'Active',
-  pending: 'Pending',
-  pending: 'Pending',
-  confirmed: 'Confirmed',
-  completed: 'Completed',
-  rejected: 'Rejected',
-  cancelled: 'Cancelled',
-  departments: 'Departments',
-  appointments: 'Appointments',
-  recentActivity: 'Recent Activity',
-};
+/**
+ * Debounce hook to prevent excessive re-renders on page changes.
+ */
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 const AdminPage = () => {
-  const { users, pagination: usersPagination, loading: usersLoading, error: usersError, refresh: refreshUsers } = useUsers();
-  const { approvals, pagination: approvalsPagination, loading: approvalsLoading, error: approvalsError, refresh: refreshApprovals } = useApprovals();
-  const { stats, loading: statsLoading, error: statsError } = useSystemStats();
-  const { settings, loading: settingsLoading, error: settingsError } = useSettings();
+  const toast = useToast();
 
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState(null);
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const debouncedPage = useDebounce(page, 300);
+  const limit = 10;
 
-  const handleApproveUser = async (id) => {
-    setActionError(null);
-    setActionLoading(true);
+  // Hooks for fetching data
+  const {
+    users,
+    pagination: usersPagination,
+    loading: usersLoading,
+    error: usersError,
+    refresh: refreshUsers,
+  } = useUsers({ page: debouncedPage, limit });
+
+  const {
+    approvals,
+    loading: approvalsLoading,
+    error: approvalsError,
+    refresh: refreshApprovals,
+  } = useApprovals({ page: 1, limit: 10 });
+
+  const {
+    stats,
+    loading: statsLoading,
+    error: statsError,
+  } = useSystemStats();
+
+  // Fetch approvals initially
+  useEffect(() => {
+    refreshApprovals();
+  }, [refreshApprovals]);
+
+  // Approve user handler
+  const approveUser = async (id) => {
     try {
-      await adminService.approveUser(id);
+      await fetch(`/admin/approvals/${id}/approve`, { method: 'PATCH' });
+      toast.addToast('User approved successfully.', 'success');
       refreshApprovals();
       refreshUsers();
-    } catch (err) {
-      setActionError(err.message);
-    } finally {
-      setActionLoading(false);
+    } catch {
+      toast.addToast('Failed to approve user.', 'error');
     }
   };
 
-  const handleRejectUser = async (id) => {
-    setActionError(null);
-    setActionLoading(true);
+  // Reject user handler
+  const rejectUser = async (id) => {
     try {
-      await adminService.rejectUser(id);
+      await fetch(`/admin/approvals/${id}/reject`, { method: 'PATCH' });
+      toast.addToast('User rejected.', 'warning');
       refreshApprovals();
       refreshUsers();
-    } catch (err) {
-      setActionError(err.message);
-    } finally {
-      setActionLoading(false);
+    } catch {
+      toast.addToast('Failed to reject user.', 'error');
+    }
+  };
+
+  // Page change handler
+  const onPageChange = (newPage) => {
+    if (
+      newPage !== page &&
+      newPage > 0 &&
+      newPage <= (usersPagination?.totalPages ?? 1)
+    ) {
+      setPage(newPage);
     }
   };
 
   return (
-    <Layout>
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-12">
-        <h1 className="text-4xl font-extrabold tracking-tight">Admin Dashboard</h1>
-
-        {/* Users Section */}
+    <Layout headerTitle="Admin Dashboard">
+      <div className="max-w-7xl mx-auto p-6 space-y-10 text-white">
+        {/* -------------------- SYSTEM STATISTICS -------------------- */}
         <section>
-          <h2 className="text-2xl font-semibold mb-6">Users</h2>
-          {usersLoading && <p>Loading users...</p>}
-          {usersError && <p className="text-red-600">{usersError}</p>}
-          <div className="space-y-4 max-h-96 overflow-auto">
-            {users.map(user => (
-              <Card key={user._id} className="flex justify-between items-center">
-                <div>
-                  <span className="font-semibold">{user.name}</span> &mdash; <span className="text-sm text-gray-300">{user.role.toUpperCase()}</span>
-                  <div className="text-gray-400 text-sm">{user.email}</div>
-                </div>
-                {/* Placeholder for User actions */}
+          <h2 className="text-2xl font-bold mb-4">System Statistics</h2>
+
+          {statsLoading ? (
+            <p>Loading statistics...</p>
+          ) : statsError ? (
+            <p className="text-red-500">Failed to load statistics.</p>
+          ) : stats ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <Card>
+                <h3 className="text-lg font-semibold">Total Users</h3>
+                <p className="text-3xl">{stats?.totalUsers ?? '-'}</p>
               </Card>
-            ))}
-          </div>
-          <Pagination pagination={usersPagination} onChange={refreshUsers} />
-        </section>
-
-        {/* Approvals Section */}
-        <section>
-          <h2 className="text-2xl font-semibold mb-6">Pending Approvals</h2>
-          {approvalsLoading && <p>Loading approvals...</p>}
-          {approvalsError && <p className="text-red-600">{approvalsError}</p>}
-          <div className="space-y-4 max-h-96 overflow-auto">
-            {approvals.map(approval => (
-              <Card key={approval._id} className="flex justify-between items-center">
-                <div>
-                  <span className="font-semibold">{approval.name}</span> &mdash; <span className="text-sm text-gray-500">{approval.type.toUpperCase()}</span>
-                  <div className="text-gray-400 text-sm">{approval.email}</div>
-                </div>
-                <div className="space-x-3">
-                  <Button loading={actionLoading} onClick={() => handleApproveUser(approval._id)} variant="success" size="small">Approve</Button>
-                  <Button loading={actionLoading} onClick={() => handleRejectUser(approval._id)} variant="danger" size="small">Reject</Button>
-                </div>
+              <Card>
+                <h3 className="text-lg font-semibold">Pending Approvals</h3>
+                <p className="text-3xl">{stats?.pendingApprovals ?? '-'}</p>
               </Card>
-            ))}
-          </div>
-          <Pagination pagination={approvalsPagination} onChange={refreshApprovals} />
-        </section>
-
-        {/* System Stats Section */}
-        <section>
-          <h2 className="text-2xl font-semibold mb-6">System Statistics</h2>
-          {statsLoading && <p>Loading stats...</p>}
-          {statsError && <p className="text-red-600">{statsError}</p>}
-          {stats && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {Object.entries(stats).map(([key, value]) => (
-                <Card key={key} className="p-6 text-left">
-                  <h3 className="text-lg font-bold mb-4">{labelMap[key] || key}</h3>
-                  {Array.isArray(value) ? (
-                    <table className="w-full text-sm border border-gray-700 rounded">
-                      <thead className="bg-gray-800">
-                        <tr>
-                          {Object.keys(value[0] || {}).filter(k => k !== '_id').map(col => (
-                            <th key={col} className="p-2 border-r border-gray-700 text-left capitalize">{col}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {value.map((item, idx) => (
-                          <tr key={item._id || idx} className={idx % 2 === 0 ? 'bg-gray-900' : ''}>
-                            {Object.entries(item).filter(([k]) => k !== '_id').map(([col, val]) => (
-                              <td key={col} className="p-2 border-r border-gray-700">{val}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : typeof value === 'object' && value !== null ? (
-                    <div className="space-y-2">
-                      {Object.entries(value).map(([subKey, subVal]) => (
-                        <div key={subKey} className="flex justify-between text-sm">
-                          <span className="capitalize">{subKey.replace(/([A-Z])/g, ' $1')}</span>
-                          <span>{subVal}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-4xl font-extrabold">{value}</div>
-                  )}
-                </Card>
-              ))}
+              <Card>
+                <h3 className="text-lg font-semibold">Appointments</h3>
+                <p className="text-3xl">{stats?.totalAppointments ?? '-'}</p>
+              </Card>
+              <Card>
+                <h3 className="text-lg font-semibold">Departments</h3>
+                <p className="text-3xl">
+                  {Array.isArray(stats?.departments)
+                    ? stats.departments.length
+                    : '-'}
+                </p>
+              </Card>
             </div>
+          ) : (
+            <p>No statistics available.</p>
           )}
         </section>
 
-        {/* Optional Settings Section can be added here */}
+        {/* -------------------- PENDING APPROVALS -------------------- */}
+        <section>
+          <h2 className="text-2xl font-bold mb-4">Pending Approvals</h2>
 
-        {actionError && <p className="text-red-600 mt-4 font-semibold">{actionError}</p>}
+          {approvalsLoading ? (
+            <p>Loading approvals...</p>
+          ) : approvalsError ? (
+            <p className="text-red-500">Failed to load approvals.</p>
+          ) : approvals && approvals.length > 0 ? (
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {approvals.map(({ _id, name, email, role }) => (
+                <Card key={_id} className="flex justify-between items-center p-4">
+                  <div>
+                    <p className="font-semibold">{name}</p>
+                    <p className="text-sm text-gray-400">{email}</p>
+                    <p className="text-sm uppercase">{role}</p>
+                  </div>
+                  <div className="space-x-3">
+                    <Button
+                      size="small"
+                      variant="success"
+                      onClick={() => approveUser(_id)}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="danger"
+                      onClick={() => rejectUser(_id)}
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <p>No pending approvals.</p>
+          )}
+        </section>
+
+        {/* -------------------- USERS -------------------- */}
+        <section>
+          <h2 className="text-2xl font-bold mb-4">Users</h2>
+
+          {usersLoading ? (
+            <p>Loading users...</p>
+          ) : usersError ? (
+            <p className="text-red-500">Failed to load users.</p>
+          ) : users && users.length > 0 ? (
+            <>
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {users.map(({ _id, name, email, role }) => (
+                  <Card
+                    key={_id}
+                    className="p-4 flex justify-between items-center"
+                  >
+                    <p>
+                      {name} ({email}) – {role?.toUpperCase?.() ?? 'UNKNOWN'}
+                    </p>
+                  </Card>
+                ))}
+              </div>
+
+              <Pagination
+                page={page}
+                totalPages={usersPagination?.totalPages ?? 1}
+                onPageChange={onPageChange}
+              />
+            </>
+          ) : (
+            <p>No users found.</p>
+          )}
+        </section>
       </div>
     </Layout>
   );

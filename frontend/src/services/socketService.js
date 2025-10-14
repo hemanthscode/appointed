@@ -1,12 +1,10 @@
-// src/services/socketService.js
 import { io } from 'socket.io-client';
 
 class SocketService {
   socket = null;
 
-  connect(token) {
+  initialize(token) {
     if (this.socket) return;
-
     this.socket = io(import.meta.env.VITE_SOCKET_SERVER_URL || '', {
       auth: { token: `Bearer ${token}` },
       transports: ['websocket'],

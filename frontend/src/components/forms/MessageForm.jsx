@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Button, Input, Textarea } from '../ui';
-import { validateMessage } from '../../utils';
+import { Button, Textarea } from '../ui';
+import { validateMessage } from '../../utils/validators';
 
 const MessageForm = ({ onSubmit, loading }) => {
   const [content, setContent] = useState('');

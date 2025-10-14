@@ -1,4 +1,3 @@
-// src/hooks/useApi.js
 import { useState, useEffect, useCallback } from 'react';
 
 export default function useApi(apiFunction, dependencies = []) {
@@ -23,6 +22,5 @@ export default function useApi(apiFunction, dependencies = []) {
     fetchData();
   }, [fetchData]);
 
-  // Return data, loading state, error, and a reload function
   return { data, loading, error, reload: fetchData };
 }

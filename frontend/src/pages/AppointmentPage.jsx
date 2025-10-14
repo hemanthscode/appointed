@@ -1,11 +1,11 @@
+// pages/AppointmentPage.jsx
 import React, { useState } from 'react';
 import { Layout } from '../components/common';
-import { AppointmentCard } from '../components/cards';
-import { AppointmentForm } from '../components/forms';
-import { Card, Modal, Pagination, Button } from '../components/ui';
-
-import {useAuth, useAppointments} from '../hooks';
-import { appointmentService } from '../services';
+import { Card, Modal, Button } from '../components/ui';
+import AppointmentForm from '../components/forms/AppointmentForm';
+import { useAuth, useAppointments } from '../hooks';
+import appointmentService from '../services/appointmentService';
+import AppointmentCard from '../components/cards/AppointmentCard';
 
 const AppointmentPage = () => {
   const { appointments, pagination, loading, error, refresh } = useAppointments();
@@ -75,28 +75,24 @@ const AppointmentPage = () => {
         {actionError && <div className="text-red-600">{actionError}</div>}
 
         {loading ? (
-          <div className="text-center text-gray-500 my-12">Loading appointments...</div>
-        ) : appointments.length === 0 ? (
-          <p className="text-center text-gray-500 italic">No appointments found.</p>
-        ) : (
-          appointments.map(appt => (
-            <AppointmentCard
-              key={appt._id}
-              appointment={appt}
-              userRole={userRole}
-              onApprove={id => handleAction(id, appointmentService.approveAppointment)}
-              onReject={id => handleAction(id, appointmentService.rejectAppointment)}
-              onCancel={id => handleAction(id, appointmentService.cancelAppointment)}
-              onComplete={id => handleAction(id, appointmentService.completeAppointment)}
-              onRate={id => handleAction(id, appointmentService.rateAppointment)}
-            />
-          ))
-        )}
+  <div className="text-center text-gray-500 my-12">Loading appointments...</div>
+) : appointments?.length === 0 ? (
+  <p className="text-center text-gray-500 italic">No appointments found.</p>
+) : (
+  appointments?.map(appt => (
+    <AppointmentCard
+      key={appt._id}
+      appointment={appt}
+      userRole={userRole}
+      onApprove={id => handleAction(id, appointmentService.approveAppointment)}
+      onReject={id => handleAction(id, appointmentService.rejectAppointment)}
+      onCancel={id => handleAction(id, appointmentService.cancelAppointment)}
+      onComplete={id => handleAction(id, appointmentService.completeAppointment)}
+      onRate={id => handleAction(id, appointmentService.rateAppointment)}
+    />
+  ))
+)}
 
-        <Pagination
-          pagination={pagination}
-          onChange={page => refresh({ ...pagination, page })}
-        />
 
         <Modal
           isOpen={modalOpen}
@@ -107,7 +103,6 @@ const AppointmentPage = () => {
         >
           <AppointmentForm
             initialData={selectedAppointment}
-            teachers={[]} // Populate based on your app data, via context or prop
             onSubmit={handleSubmit}
             loading={actionLoading}
             onCancel={closeModal}

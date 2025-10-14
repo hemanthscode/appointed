@@ -1,8 +1,9 @@
+// pages/RegisterPage.jsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/common';
-import { RegisterForm } from '../components/forms';
+import RegisterForm from '../components/forms/RegisterForm';
 import { Card } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
 import { ROUTES, ANIMATIONS } from '../utils';
@@ -19,7 +20,6 @@ const RegisterPage = () => {
       const user = await register(formData);
       if (user) navigate(ROUTES.PROFILE);
     } catch (err) {
-      // Show detailed backend validation errors if available
       if (err?.errors) {
         setFormError('Please fix the errors in the form');
       } else if (err.message) {

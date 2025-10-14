@@ -12,8 +12,14 @@ const useAppointments = (filters = {}) => {
     setError(null);
     try {
       const data = await appointmentService.getAppointments(params);
-      setAppointments(data.appointments);
-      setPagination(data.pagination);
+      // Handle array vs object response
+      if (Array.isArray(data)) {
+        setAppointments(data);
+        setPagination({});
+      } else {
+        setAppointments(data.appointments || []);
+        setPagination(data.pagination || {});
+      }
     } catch (err) {
       setError(err.message || 'Failed to load appointments');
     } finally {

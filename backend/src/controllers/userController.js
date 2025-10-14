@@ -4,10 +4,16 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const fileService = require('../services/fileService');
 
 exports.getProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id)
-    .populate('appointments', null, null, { sort: { date: -1 } });
-  res.status(200).json({ success: true, data: user.toJSON() });
+  // Fetch user without populating appointments
+  const user = await User.findById(req.user._id).lean();
+
+  if (!user) {
+    return res.status(404).json({ success: false, error: 'User not found' });
+  }
+
+  res.status(200).json({ success: true, data: user });
 });
+
 
 exports.updateProfile = asyncHandler(async (req, res) => {
   const allowedFields = ['name', 'phone', 'address', 'bio', 'office'];

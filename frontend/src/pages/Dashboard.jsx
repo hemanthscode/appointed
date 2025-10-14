@@ -1,90 +1,101 @@
-import React, { useEffect, useState } from "react";
-import { Layout } from "../components/common";
-import Card from "../components/ui/Card";
-import StatsCard from "../components/cards/StatsCard";
-import { useToast } from "../contexts/ToastContext";
-import adminService from "../services/adminService";
-import appointmentService from "../services/appointmentService";
-import { Calendar, Clock } from "lucide-react";
-import { ANIMATIONS } from "../utils";
+import React, { useEffect, useState } from 'react';
+import { Layout } from '../components/common';
+import AppointmentCard from '../components/cards/AppointmentCard';
+import AppointmentForm from '../components/forms/AppointmentForm';
+import Modal from '../components/ui/Modal';
+import { Button } from '../components/ui';
+import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
+import adminService from '../services/adminService';
+import appointmentService from '../services/appointmentService';
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const toast = useToast();
 
-  const [stats, setStats] = useState(null);
-  const [loadingStats, setLoadingStats] = useState(false);
   const [appointments, setAppointments] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loadingAppointments, setLoadingAppointments] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(false);
 
-  useEffect(() => {
-    async function fetchStats() {
-      setLoadingStats(true);
-      try {
-        const data = await adminService.getSystemStats();
-        setStats(data);
-      } catch {
-        toast.addToast("Failed to load system statistics.", "error");
-      }
+  const [modalOpen, setModalOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const fetchSystemStats = async () => {
+    setLoadingStats(true);
+    try {
+      const data = await adminService.getSystemStats();
+      setStats(data);
+    } catch {
+      toast.addToast('Failed to load system statistics.', 'error');
+    } finally {
       setLoadingStats(false);
     }
+  };
 
-    async function fetchAppointments() {
-      setLoadingAppointments(true);
-      try {
-        const data = await appointmentService.getAppointments({
-          page: 1,
-          limit: 5,
-          status: "confirmed",
-        });
-        // Defensive check
-        setAppointments(Array.isArray(data.appointments) ? data.appointments : []);
-      } catch {
-        toast.addToast("Failed to load upcoming appointments.", "error");
-      }
+  const fetchAppointments = async () => {
+    setLoadingAppointments(true);
+    try {
+      const roleFilter = user.role === 'student' ? { student: user._id, status: 'confirmed' } : {};
+      const data = await appointmentService.getAppointments(roleFilter);
+      setAppointments(data);
+    } catch {
+      toast.addToast('Failed to load appointments.', 'error');
+    } finally {
       setLoadingAppointments(false);
     }
+  };
 
-    fetchStats();
-    fetchAppointments();
-  }, [toast]);
+  useEffect(() => {
+    if (user) {
+      fetchSystemStats();
+      fetchAppointments();
+    }
+  }, [user]);
+
+  const openModal = () => setModalOpen(true);
+  const closeModal = () => setModalOpen(false);
+
+  const handleAppointmentSubmit = async (formData) => {
+    setActionLoading(true);
+    try {
+      await appointmentService.createAppointment(formData);
+      toast.addToast('Appointment booked successfully.', 'success');
+      closeModal();
+      fetchAppointments();
+    } catch (err) {
+      toast.addToast(err.message || 'Booking failed.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   return (
-    <Layout headerTitle="Dashboard">
-      <section className="max-w-7xl mx-auto p-6 text-white space-y-8">
-        <h1 className="text-4xl font-bold">Dashboard Overview</h1>
-
-        {loadingStats ? (
-          <p>Loading statistics...</p>
-        ) : stats ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <StatsCard label="Total Users" value={stats.totalUsers} icon={Calendar} />
-            <StatsCard label="Pending Approvals" value={stats.pendingApprovals} icon={Clock} />
-            <StatsCard label="Total Appointments" value={stats.totalAppointments} icon={Calendar} />
-          </div>
-        ) : (
-          <p>No statistics available.</p>
-        )}
-
-        <div>
-          <h2 className="text-2xl font-bold mb-4">Upcoming Appointments</h2>
+    <Layout headerTitle={`Welcome, ${user?.name || 'User'}`}>
+      <div className="max-w-5xl mx-auto p-6 space-y-10 text-white">
+        <section>
+          <h2 className="text-3xl font-semibold mb-6">Your Upcoming Appointments</h2>
           {loadingAppointments ? (
-            <p>Loading appointments...</p>
+            <p>Loading your appointments...</p>
           ) : appointments.length === 0 ? (
-            <p>No upcoming appointments.</p>
+            <p className="italic text-gray-400">No upcoming appointments.</p>
           ) : (
-            <ul>
-              {appointments.map(({ id, date, time, teacher, student }) => (
-                <Card key={id} className="p-4 mb-4">
-                  <p>
-                    {new Date(date).toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })} at {time} —{" "}
-                    {teacher?.name ?? "Teacher"} / {student?.name ?? "Student"}
-                  </p>
-                </Card>
-              ))}
-            </ul>
+            appointments.map(appt => <AppointmentCard key={appt._id} appointment={appt} userRole={user.role} />)
           )}
-        </div>
-      </section>
+        </section>
+
+        <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          <Button variant="primary" size="large" onClick={openModal}>Book New Appointment</Button>
+          <Button variant="secondary" size="large" onClick={() => (window.location.href = '/appointments')}>View All Appointments</Button>
+          <Button variant="secondary" size="large" onClick={() => (window.location.href = '/messages')}>Messages</Button>
+          <Button variant="secondary" size="large" onClick={() => (window.location.href = '/profile')}>My Profile</Button>
+          <Button variant="secondary" size="large" onClick={() => (window.location.href = '/change-password')}>Change Password</Button>
+        </section>
+
+        <Modal isOpen={modalOpen} onClose={closeModal} title="Book New Appointment" size="medium" showCloseButton>
+          <AppointmentForm onSubmit={handleAppointmentSubmit} loading={actionLoading} onCancel={closeModal} />
+        </Modal>
+      </div>
     </Layout>
   );
 };

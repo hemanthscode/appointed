@@ -1,11 +1,13 @@
+// pages/LoginPage.jsx
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/common';
-import { LoginForm } from '../components/forms';
+import LoginForm from '../components/forms/LoginForm';
 import { Card } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
-import { ROUTES, ANIMATIONS } from '../utils';
+import { ANIMATIONS } from '../utils/animations';
+import { ROUTES } from '../utils';
 
 const LoginPage = () => {
   const navigate = useNavigate();

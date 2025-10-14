@@ -16,7 +16,12 @@ export const ToastProvider = ({ children }) => {
       {children}
       <div className="fixed bottom-5 right-5 space-y-2 z-50">
         {toasts.map(({ id, message, type }) => (
-          <div key={id} className={`px-4 py-2 rounded shadow text-white ${type === 'error' ? 'bg-red-600' : type === 'success' ? 'bg-green-600' : 'bg-gray-600'}`}>
+          <div
+            key={id}
+            className={`px-4 py-2 rounded shadow text-white ${
+              type === 'error' ? 'bg-red-600' : type === 'success' ? 'bg-green-600' : 'bg-gray-600'
+            }`}
+          >
             {message}
           </div>
         ))}

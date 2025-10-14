@@ -1,25 +1,28 @@
 import apiService from './apiService';
 
-const getConversations = (params) => apiService.request(`/messages/conversations?${new URLSearchParams(params).toString()}`);
+const getConversations = (params = {}) =>
+  apiService.request(`/messages/conversations${params ? `?${new URLSearchParams(params).toString()}` : ''}`);
 
-const getUnreadCount = () => apiService.request('/messages/unread-count');
+const getUnreadCount = () =>
+  apiService.request('/messages/unread-count');
 
-const searchMessages = (params) => apiService.request(`/messages/search?${new URLSearchParams(params).toString()}`);
+const searchMessages = (params = {}) =>
+  apiService.request(`/messages/search${params ? `?${new URLSearchParams(params).toString()}` : ''}`);
 
-const getMessages = (conversationId, params) =>
-  apiService.request(`/messages/${conversationId}?${new URLSearchParams(params).toString()}`);
+const getMessages = (conversationId, params = {}) =>
+  apiService.request(`/messages/${conversationId}${params ? `?${new URLSearchParams(params).toString()}` : ''}`);
 
 const sendMessage = (data) => {
   const formData = new FormData();
   if (data.content) formData.append('content', data.content);
   if (data.receiver) formData.append('receiver', data.receiver);
   if (data.files) {
-    data.files.forEach((file) => formData.append('files', file));
+    data.files.forEach(file => formData.append('files', file));
   }
   return apiService.request('/messages/send', {
     method: 'POST',
     body: formData,
-    headers: { 'Content-Type': undefined }, // browser sets automatically for FormData
+    headers: { 'Content-Type': undefined }, // Let browser set correct Content-Type for multipart/form-data
   });
 };
 

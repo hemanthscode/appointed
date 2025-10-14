@@ -9,12 +9,12 @@ const useSchedule = (filters = {}) => {
   const [error, setError] = useState(null);
   const [statsError, setStatsError] = useState(null);
 
-  const fetchSchedule = async params => {
+  const fetchSchedule = async (params) => {
     setLoading(true);
     setError(null);
     try {
       const data = await scheduleService.getSchedule(params);
-      setSchedule(data.schedule);
+      setSchedule(data.scheduleSlots || data.schedule || []);
     } catch (err) {
       setError(err.message || 'Failed to load schedule');
     } finally {
@@ -27,7 +27,7 @@ const useSchedule = (filters = {}) => {
     setStatsError(null);
     try {
       const data = await scheduleService.getScheduleStats();
-      setStats(data.stats);
+      setStats(data.data || data.stats || data);
     } catch (err) {
       setStatsError(err.message || 'Failed to load schedule stats');
     } finally {

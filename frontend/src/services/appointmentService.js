@@ -1,7 +1,7 @@
 import apiService from './apiService';
 
-const getAppointments = (params) =>
-  apiService.request(`/appointments?${new URLSearchParams(params).toString()}`);
+const getAppointments = (params = {}) =>
+  apiService.request(`/appointments${params ? `?${new URLSearchParams(params).toString()}` : ''}`);
 
 const getAppointment = (id) => apiService.request(`/appointments/${id}`);
 

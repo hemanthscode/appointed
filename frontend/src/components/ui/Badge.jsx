@@ -19,7 +19,9 @@ const Badge = ({ children, variant = 'info', size = 'medium', className = '', ic
   const baseClass = variantClasses[variant] || variantClasses.info;
 
   return (
-    <span className={`${baseClass} ${sizeClasses[size]} ${className} rounded-full font-medium flex items-center space-x-1 w-fit`}>
+    <span
+      className={`${baseClass} ${sizeClasses[size]} ${className} rounded-full font-medium flex items-center space-x-1 w-fit`}
+    >
       {icon && <span>{icon}</span>}
       <span>{children}</span>
     </span>

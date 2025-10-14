@@ -1,68 +1,45 @@
 import React from 'react';
-import { Card, Badge, Button } from '../ui';
+import { Button, Badge, Card } from '../ui';
+import { formatDateTime, getStatusColor } from '../../utils/helpers';
+import { APPOINTMENT_STATUS } from '../../utils/constants';
 
-const AppointmentCard = ({
-  appointment,
-  onApprove,
-  onReject,
-  onCancel,
-  onComplete,
-  onRate,
-  userRole,
-}) => {
-  const {
-    purpose,
-    formattedDate,
-    time,
-    status,
-    teacher,
-    student,
-  } = appointment;
+const AppointmentCard = ({ appointment, userRole, onApprove, onReject, onCancel, onComplete, onRate }) => {
+  const { teacher, student, date, time, purpose, status, rating } = appointment;
+  const dateTimeLabel = formatDateTime(date, time);
+  const statusColorClass = getStatusColor(status);
+
+  const canApprove = userRole === 'teacher' && status === APPOINTMENT_STATUS.PENDING;
+  const canReject = canApprove;
+  const canCancel = userRole === 'student' && [APPOINTMENT_STATUS.PENDING, APPOINTMENT_STATUS.CONFIRMED].includes(status);
+  const canComplete = userRole === 'teacher' && status === APPOINTMENT_STATUS.CONFIRMED;
+  const canRate = userRole === 'student' && status === APPOINTMENT_STATUS.COMPLETED && !rating;
 
   return (
-    <Card className="mb-4 p-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-        <div>
-          <h3 className="font-semibold text-lg">{purpose.replace(/-/g, ' ').toUpperCase()}</h3>
-          <div className="text-gray-400 text-sm">{formattedDate} &bull; {time}</div>
-          <div className="text-gray-300 text-sm">Teacher: {teacher?.name || 'Unknown'}</div>
-          <div className="text-gray-300 text-sm">Student: {student?.name || 'Unknown'}</div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 mt-3 sm:mt-0 items-center">
-          <Badge
-            variant={
-              status === 'confirmed'
-                ? 'success'
-                : status === 'completed'
-                ? 'primary'
-                : status === 'cancelled'
-                ? 'danger'
-                : status === 'rejected'
-                ? 'warning'
-                : 'secondary'
-            }
-            size="medium"
-          >
-            {status.charAt(0).toUpperCase() + status.slice(1)}
-          </Badge>
-
-          {/* Role-based buttons */}
-          {userRole === 'teacher' && status === 'pending' && (
-            <>
-              <Button size="small" variant="success" onClick={() => onApprove(appointment._id)}>Approve</Button>
-              <Button size="small" variant="danger" onClick={() => onReject(appointment._id)}>Reject</Button>
-            </>
-          )}
-
-          {(userRole === 'teacher' || userRole === 'student') && status === 'confirmed' && (
-            <>
-              <Button size="small" variant="warning" onClick={() => onCancel(appointment._id)}>Cancel</Button>
-              {userRole === 'teacher' && <Button size="small" variant="info" onClick={() => onComplete(appointment._id)}>Complete</Button>}
-              {userRole === 'student' && <Button size="small" variant="primary" onClick={() => onRate(appointment._id)}>Rate</Button>}
-            </>
-          )}
-        </div>
+    <Card hoverable className="p-6 flex flex-col md:flex-row justify-between gap-4">
+      <div className="flex-grow space-y-1">
+        <h3 className="text-xl font-semibold">{purpose}</h3>
+        <p>
+          <span className="font-semibold">Date & Time: </span>{dateTimeLabel}
+        </p>
+        <p>
+          <span className="font-semibold">Teacher: </span>{teacher.name}
+        </p>
+        {userRole === 'teacher' && (
+          <p>
+            <span className="font-semibold">Student: </span>{student.name}
+          </p>
+        )}
+      </div>
+      <div className={`uppercase font-bold ${statusColorClass} px-3 py-1 rounded self-start`}>
+        {status}
+      </div>
+      <div className="flex items-center space-x-2">
+        {canApprove && <Button variant="success" size="small" onClick={() => onApprove(appointment._id)}>Approve</Button>}
+        {canReject && <Button variant="danger" size="small" onClick={() => onReject(appointment._id)}>Reject</Button>}
+        {canCancel && <Button variant="warning" size="small" onClick={() => onCancel(appointment._id)}>Cancel</Button>}
+        {canComplete && <Button variant="info" size="small" onClick={() => onComplete(appointment._id)}>Complete</Button>}
+        {canRate && <Button variant="primary" size="small" onClick={() => onRate(appointment._id)}>Rate</Button>}
+        {rating && <Badge variant="success">Rated: {rating}★</Badge>}
       </div>
     </Card>
   );

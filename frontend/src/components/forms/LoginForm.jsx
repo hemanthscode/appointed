@@ -4,7 +4,7 @@ import { Button, Input } from '../ui';
 import { validateLoginForm } from '../../utils/validators';
 
 const LoginForm = ({ onSubmit, loading = false }) => {
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ email: '', password: 'Password@123' });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
 

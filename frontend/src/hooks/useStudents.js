@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import userService from '../services/userService';
 
-export default function useStudents(filters) {
+export default function useStudents(filters = {}) {
   const [students, setStudents] = useState([]);
   const [pagination, setPagination] = useState({});
   const [loading, setLoading] = useState(false);
