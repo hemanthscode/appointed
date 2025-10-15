@@ -1,239 +1,288 @@
 const Appointment = require('../models/Appointment');
-const { asyncHandler } = require('../middleware/errorHandler');
+const User = require('../models/User');
+const helpers = require('../utils/helpers');
+const constants = require('../utils/constants');
 
-// ✅ Enhanced Get Appointments with role-based filtering
-exports.getAppointments = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20, status, date, teacher, student } = req.query;
-  const query = {};
+/**
+ * Get list of appointments with filters and pagination
+ */
+exports.getAppointments = async (req, res, next) => {
+  try {
+    const { page = constants.PAGINATION.DEFAULT_PAGE, limit = constants.PAGINATION.DEFAULT_LIMIT, status, date, teacher, student } = req.query;
 
-  // 🔹 Secure filtering based on logged-in user's role
-  if (req.user.role === 'student') {
-    query.student = req.user._id;
-  } else if (req.user.role === 'teacher') {
-    query.teacher = req.user._id;
-  } else if (req.user.role === 'admin') {
-    // Admin can see all appointments — optionally filter
-    if (student) query.student = student;
-    if (teacher) query.teacher = teacher;
+    const filter = {};
+
+    // Role-based filtering
+    if (req.user.role === constants.USER_ROLES.STUDENT) {
+      filter.student = req.user._id;
+    } else if (req.user.role === constants.USER_ROLES.TEACHER) {
+      filter.teacher = req.user._id;
+    } else if (req.user.role === constants.USER_ROLES.ADMIN) {
+      if (student) filter.student = student;
+      if (teacher) filter.teacher = teacher;
+    }
+
+    // Optional filters
+    if (status) filter.status = status;
+    if (date) {
+      const start = new Date(date);
+      start.setUTCHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      filter.date = { $gte: start, $lt: end };
+    }
+
+    const total = await Appointment.countDocuments(filter);
+    const appointments = await Appointment.find(filter)
+      .populate('student teacher', 'name email role')
+      .sort({ date: -1, _id: -1 })
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
+
+    res.status(constants.HTTP_STATUS.OK).json(helpers.paginate(appointments, total, page, limit));
+  } catch (err) {
+    next(err);
   }
+};
 
-  // 🔹 Optional filters (for all roles)
-  if (status) query.status = status;
-  if (date) query.date = new Date(date);
+/**
+ * Get single appointment by ID with access control
+ */
+exports.getAppointment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const appointment = await Appointment.findById(id).populate('student teacher', 'name email role');
 
-  const appointments = await Appointment.find(query)
-    .populate('student teacher', '-password -refreshToken')
-    .sort({ date: -1, time: 1 })
-    .limit(Number(limit))
-    .skip((Number(page) - 1) * Number(limit));
+    if (!appointment) {
+      return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse('Appointment not found'));
+    }
 
-  const total = await Appointment.countDocuments(query);
+    // Authorization: owner or admin
+    if (
+      req.user.role !== constants.USER_ROLES.ADMIN &&
+      appointment.student._id.toString() !== req.user._id.toString() &&
+      appointment.teacher._id.toString() !== req.user._id.toString()
+    ) {
+      return res.status(constants.HTTP_STATUS.FORBIDDEN).json(helpers.errorResponse('Access denied'));
+    }
 
-  res.status(200).json({
-    success: true,
-    data: appointments,
-    pagination: {
-      page: Number(page),
-      limit: Number(limit),
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  });
-});
-
-// ✅ Get single appointment by ID
-exports.getAppointment = asyncHandler(async (req, res) => {
-  const appointment = await Appointment.findById(req.params.id).populate(
-    'student teacher',
-    '-password -refreshToken'
-  );
-
-  if (!appointment)
-    return res
-      .status(404)
-      .json({ success: false, message: 'Appointment not found' });
-
-  // Restrict direct access (students & teachers can only view their own)
-  if (
-    req.user.role !== 'admin' &&
-    appointment.student._id.toString() !== req.user._id.toString() &&
-    appointment.teacher._id.toString() !== req.user._id.toString()
-  ) {
-    return res
-      .status(403)
-      .json({ success: false, message: 'Access denied to this appointment' });
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(appointment));
+  } catch (err) {
+    next(err);
   }
+};
 
-  res.status(200).json({ success: true, data: appointment });
-});
+/**
+ * Create appointment (Student role)
+ */
+exports.createAppointment = async (req, res, next) => {
+  try {
+    // Validate input
+    const { teacher, date, time, purpose, message } = req.body;
 
-// ✅ Create new appointment (student only)
-exports.createAppointment = asyncHandler(async (req, res) => {
-  const appointment = await Appointment.create({
-    ...req.body,
-    student: req.user._id,
-    status: 'pending',
-  });
-  res
-    .status(201)
-    .json({ success: true, message: 'Appointment created', data: appointment });
-});
+    // Use validators outside for brevity here
+    const validation = require('../middleware/validation');
+    validation.validateAppointment(req.body);
+    const { isValid, errors } = validation.validateAppointment(req.body);
+    if (!isValid) {
+      return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse(errors.join('. ')));
+    }
 
-// ✅ Update appointment (authorized user)
-exports.updateAppointment = asyncHandler(async (req, res) => {
-  const appointment = await Appointment.findById(req.params.id);
-  if (!appointment)
-    return res
-      .status(404)
-      .json({ success: false, message: 'Appointment not found' });
+    const appointment = new Appointment({
+      student: req.user._id,
+      teacher,
+      date,
+      time,
+      purpose,
+      message,
+      status: constants.APPOINTMENT_STATUS.PENDING
+    });
+    await appointment.save();
 
-  // Allow updates only by owner (student/teacher involved)
-  if (
-    req.user.role !== 'admin' &&
-    appointment.student.toString() !== req.user._id.toString() &&
-    appointment.teacher.toString() !== req.user._id.toString()
-  ) {
-    return res
-      .status(403)
-      .json({ success: false, message: 'Not authorized to update this booking' });
+    res.status(constants.HTTP_STATUS.CREATED).json(helpers.successResponse(appointment, 'Appointment created'));
+  } catch (err) {
+    next(err);
   }
+};
 
-  const updated = await Appointment.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+/**
+ * Update appointment status or details by owner or admin
+ */
+exports.updateAppointment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const appointment = await Appointment.findById(id);
 
-  res
-    .status(200)
-    .json({ success: true, message: 'Appointment updated', data: updated });
-});
+    if (!appointment) return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse('Appointment not found'));
 
-// ✅ Delete appointment (admin only)
-exports.deleteAppointment = asyncHandler(async (req, res) => {
-  const appointment = await Appointment.findByIdAndDelete(req.params.id);
-  if (!appointment)
-    return res
-      .status(404)
-      .json({ success: false, message: 'Appointment not found' });
-  res.status(200).json({ success: true, message: 'Appointment deleted' });
-});
+    // Authorization check
+    if (
+      req.user.role !== constants.USER_ROLES.ADMIN &&
+      appointment.student.toString() !== req.user._id.toString() &&
+      appointment.teacher.toString() !== req.user._id.toString()
+    ) {
+      return res.status(constants.HTTP_STATUS.FORBIDDEN).json(helpers.errorResponse('Not authorized'));
+    }
 
-// ✅ Approve appointment (teacher only)
-exports.approveAppointment = asyncHandler(async (req, res) => {
-  const appointment = await Appointment.findById(req.params.id);
-  if (!appointment)
-    return res
-      .status(404)
-      .json({ success: false, message: 'Appointment not found' });
-  if (req.user.role !== 'teacher')
-    return res
-      .status(403)
-      .json({ success: false, message: 'Only teachers can approve appointments' });
+    const updates = req.body;
+    // Prevent role change or invalid status
+    if (updates.status && !Object.values(constants.APPOINTMENT_STATUS).includes(updates.status)) {
+      return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('Invalid status'));
+    }
 
-  appointment.status = 'confirmed';
-  appointment.confirmedAt = new Date();
-  await appointment.save();
+    Object.assign(appointment, updates);
+    await appointment.save();
 
-  res
-    .status(200)
-    .json({ success: true, message: 'Appointment approved', data: appointment });
-});
-
-// ✅ Reject appointment (teacher only)
-exports.rejectAppointment = asyncHandler(async (req, res) => {
-  const appointment = await Appointment.findById(req.params.id);
-  if (!appointment)
-    return res
-      .status(404)
-      .json({ success: false, message: 'Appointment not found' });
-  if (req.user.role !== 'teacher')
-    return res
-      .status(403)
-      .json({ success: false, message: 'Only teachers can reject appointments' });
-
-  appointment.status = 'rejected';
-  appointment.rejectionReason = req.body.reason || '';
-  appointment.rejectedAt = new Date();
-  await appointment.save();
-
-  res
-    .status(200)
-    .json({ success: true, message: 'Appointment rejected', data: appointment });
-});
-
-// ✅ Cancel appointment (student or teacher)
-exports.cancelAppointment = asyncHandler(async (req, res) => {
-  const appointment = await Appointment.findById(req.params.id);
-  if (!appointment)
-    return res
-      .status(404)
-      .json({ success: false, message: 'Appointment not found' });
-
-  const isAuthorized =
-    req.user.role === 'admin' ||
-    appointment.student.toString() === req.user._id.toString() ||
-    appointment.teacher.toString() === req.user._id.toString();
-
-  if (!isAuthorized)
-    return res
-      .status(403)
-      .json({ success: false, message: 'Access denied for cancellation' });
-
-  appointment.status = 'cancelled';
-  appointment.cancelledAt = new Date();
-  await appointment.save();
-
-  res
-    .status(200)
-    .json({ success: true, message: 'Appointment cancelled', data: appointment });
-});
-
-// ✅ Mark appointment as completed (teacher only)
-exports.completeAppointment = asyncHandler(async (req, res) => {
-  const appointment = await Appointment.findById(req.params.id);
-  if (!appointment)
-    return res
-      .status(404)
-      .json({ success: false, message: 'Appointment not found' });
-  if (req.user.role !== 'teacher')
-    return res
-      .status(403)
-      .json({ success: false, message: 'Only teachers can complete appointments' });
-
-  appointment.status = 'completed';
-  appointment.completedAt = new Date();
-  await appointment.save();
-
-  res.status(200).json({
-    success: true,
-    message: 'Appointment marked as completed',
-    data: appointment,
-  });
-});
-
-// ✅ Rate appointment (student only)
-exports.rateAppointment = asyncHandler(async (req, res) => {
-  const { rating, feedback } = req.body;
-  const appointment = await Appointment.findById(req.params.id);
-
-  if (!appointment)
-    return res
-      .status(404)
-      .json({ success: false, message: 'Appointment not found' });
-
-  // Role check & ownership
-  if (req.user.role !== 'student' ||
-      appointment.student.toString() !== req.user._id.toString()) {
-    return res
-      .status(403)
-      .json({ success: false, message: 'Only the student can rate this appointment' });
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(appointment, 'Appointment updated'));
+  } catch (err) {
+    next(err);
   }
+};
 
-  appointment.studentRating = rating;
-  appointment.studentFeedback = feedback;
-  await appointment.save();
+/**
+ * Approve appointment (teacher only)
+ */
+exports.approveAppointment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const appointment = await Appointment.findById(id);
+    if (!appointment) return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse('Appointment not found'));
 
-  res
-    .status(200)
-    .json({ success: true, message: 'Appointment rated successfully', data: appointment });
-});
+    if (req.user.role !== constants.USER_ROLES.TEACHER) {
+      return res.status(constants.HTTP_STATUS.FORBIDDEN).json(helpers.errorResponse('Only teachers can approve'));
+    }
+
+    appointment.status = constants.APPOINTMENT_STATUS.CONFIRMED;
+    appointment.confirmedAt = new Date();
+    await appointment.save();
+
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(appointment, 'Appointment confirmed'));
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Reject appointment (teacher only)
+ */
+exports.rejectAppointment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { rejectionReason } = req.body;
+    const appointment = await Appointment.findById(id);
+    if (!appointment) return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse('Appointment not found'));
+
+    if (req.user.role !== constants.USER_ROLES.TEACHER) {
+      return res.status(constants.HTTP_STATUS.FORBIDDEN).json(helpers.errorResponse('Only teachers can reject'));
+    }
+
+    appointment.status = constants.APPOINTMENT_STATUS.REJECTED;
+    appointment.rejectionReason = rejectionReason;
+    appointment.rejectedAt = new Date();
+    await appointment.save();
+
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(appointment, 'Appointment rejected'));
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Cancel appointment (student, teacher, or admin)
+ */
+exports.cancelAppointment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const appointment = await Appointment.findById(id);
+    if (!appointment) return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse('Appointment not found'));
+
+    if (
+      req.user.role !== constants.USER_ROLES.ADMIN &&
+      appointment.student.toString() !== req.user._id.toString() &&
+      appointment.teacher.toString() !== req.user._id.toString()
+    ) {
+      return res.status(constants.HTTP_STATUS.FORBIDDEN).json(helpers.errorResponse('Not authorized to cancel'));
+    }
+
+    appointment.status = constants.APPOINTMENT_STATUS.CANCELLED;
+    appointment.cancelledAt = new Date();
+    await appointment.save();
+
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(appointment, 'Appointment cancelled'));
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Mark appointment as completed (teacher only)
+ */
+exports.completeAppointment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const appointment = await Appointment.findById(id);
+    if (!appointment) return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse('Appointment not found'));
+
+    if (req.user.role !== constants.USER_ROLES.TEACHER) {
+      return res.status(constants.HTTP_STATUS.FORBIDDEN).json(helpers.errorResponse('Only teachers can mark completed'));
+    }
+
+    appointment.status = constants.APPOINTMENT_STATUS.COMPLETED;
+    appointment.completedAt = new Date();
+    await appointment.save();
+
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(appointment, 'Appointment marked as completed'));
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Rate and feedback (student only)
+ */
+exports.rateAppointment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { rating, feedback } = req.body;
+
+    const appointment = await Appointment.findById(id);
+    if (!appointment) return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse('Appointment not found'));
+
+    if (appointment.student.toString() !== req.user._id.toString()) {
+      return res.status(constants.HTTP_STATUS.FORBIDDEN).json(helpers.errorResponse('Only the student can rate'));
+    }
+
+    appointment.studentRating = rating;
+    appointment.studentFeedback = feedback;
+    await appointment.save();
+
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(appointment, 'Rating saved'));
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Delete an appointment
+ */
+exports.deleteAppointment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const appointment = await Appointment.findById(id);
+    if (!appointment) return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse('Appointment not found'));
+
+    // Only admin or involved user
+    if (
+      req.user.role !== constants.USER_ROLES.ADMIN &&
+      appointment.student.toString() !== req.user._id.toString() &&
+      appointment.teacher.toString() !== req.user._id.toString()
+    ) {
+      return res.status(constants.HTTP_STATUS.FORBIDDEN).json(helpers.errorResponse('Not authorized'));
+    }
+
+    await appointment.deleteOne();
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(null, 'Appointment deleted'));
+  } catch (err) {
+    next(err);
+  }
+};

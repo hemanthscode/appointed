@@ -1,27 +1,30 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { JWT } = require('../utils/constants');
 
 const authConfig = {
   jwtSecret: process.env.JWT_SECRET,
-  jwtExpire: process.env.JWT_EXPIRE || '7d',
-  jwtRefreshExpire: process.env.JWT_REFRESH_EXPIRE || '30d',
+  jwtExpire: process.env.JWT_EXPIRE || JWT.ACCESS_TOKEN_EXPIRE,
+  jwtRefreshExpire: process.env.JWT_REFRESH_EXPIRE || JWT.REFRESH_TOKEN_EXPIRE,
 
-  passwordMinLength: parseInt(process.env.PASSWORD_MIN_LENGTH) || 8,
-  passwordSaltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12,
+  passwordResetExpire: parseInt(process.env.PASSWORD_RESET_EXPIRE) || JWT.PASSWORD_RESET_EXPIRE,
+  emailVerificationExpire: parseInt(process.env.EMAIL_VERIFICATION_EXPIRE) || JWT.EMAIL_VERIFICATION_EXPIRE,
 
-  passwordResetExpire: parseInt(process.env.PASSWORD_RESET_EXPIRE) || 10 * 60 * 1000, // 10 minutes
-  emailVerificationExpire: parseInt(process.env.EMAIL_VERIFICATION_EXPIRE) || 24 * 60 * 60 * 1000, // 24 hours
+  generateToken(payload) {
+    return jwt.sign(payload, this.jwtSecret, { expiresIn: this.jwtExpire });
+  },
 
-  maxLoginAttempts: parseInt(process.env.MAX_LOGIN_ATTEMPTS) || 5,
-  lockoutDuration: parseInt(process.env.LOCKOUT_DURATION) || 30 * 60 * 1000, // 30 minutes
+  generateRefreshToken(payload) {
+    return jwt.sign(payload, this.jwtSecret, { expiresIn: this.jwtRefreshExpire });
+  },
 
-  generateToken: (payload) => jwt.sign(payload, authConfig.jwtSecret, { expiresIn: authConfig.jwtExpire }),
+  verifyToken(token) {
+    return jwt.verify(token, this.jwtSecret);
+  },
 
-  generateRefreshToken: (payload) => jwt.sign(payload, authConfig.jwtSecret, { expiresIn: authConfig.jwtRefreshExpire }),
-
-  verifyToken: (token) => jwt.verify(token, authConfig.jwtSecret),
-
-  generateRandomToken: () => crypto.randomBytes(32).toString('hex')
+  generateRandomToken() {
+    return crypto.randomBytes(32).toString('hex');
+  }
 };
 
 module.exports = authConfig;

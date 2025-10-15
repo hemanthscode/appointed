@@ -31,7 +31,6 @@ const validators = {
       errors.push('Password is required');
       return { isValid: false, errors };
     }
-
     if (password.length < 8) errors.push('Password must be at least 8 characters long');
     if (password.length > 128) errors.push('Password cannot exceed 128 characters');
     if (!/(?=.*[a-z])/.test(password)) errors.push('Password must contain at least one lowercase letter');
@@ -271,7 +270,6 @@ const validators = {
     }
     return { isValid: errors.length === 0, errors };
   }
-
 };
 
 module.exports = validators;

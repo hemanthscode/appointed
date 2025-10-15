@@ -1,93 +1,149 @@
 const User = require('../models/User');
-const { asyncHandler } = require('../middleware/errorHandler');
+const constants = require('../utils/constants');
+const helpers = require('../utils/helpers');
 
-// User management with pagination
-exports.getUsers = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20 } = req.query;
-  const query = {};
-  const users = await User.find(query).limit(Number(limit)).skip((Number(page) - 1) * Number(limit)).select('-password -refreshToken');
-  const total = await User.countDocuments(query);
+/**
+ * Get paginated list of users (admin only)
+ */
+exports.getUsers = async (req, res, next) => {
+  try {
+    const { page = constants.PAGINATION.DEFAULT_PAGE, limit = constants.PAGINATION.DEFAULT_LIMIT } = req.query;
 
-  res.status(200).json({
-    success: true,
-    data: users,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
-  });
-});
+    const query = {}; // Optionally add filters here if desired
 
-// Bulk user operations: activate, deactivate, suspend, delete
-exports.bulkUserOperation = asyncHandler(async (req, res) => {
-  const { ids, operation } = req.body;
-  let result;
+    const total = await User.countDocuments(query);
+    const users = await User.find(query)
+      .select('-password -refreshToken')
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
 
-  switch (operation) {
-    case 'activate':
-      result = await User.updateMany({ _id: { $in: ids } }, { status: 'active' });
-      break;
-    case 'deactivate':
-      result = await User.updateMany({ _id: { $in: ids } }, { status: 'inactive' });
-      break;
-    case 'suspend':
-      result = await User.updateMany({ _id: { $in: ids } }, { status: 'suspended' });
-      break;
-    case 'delete':
-      result = await User.deleteMany({ _id: { $in: ids } });
-      break;
-    default:
-      return res.status(400).json({ success: false, message: 'Invalid operation' });
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(users.map(u => u.toJSON()), null, {
+      page, limit, total, totalPages: Math.ceil(total / limit)
+    }));
+  } catch (err) {
+    next(err);
   }
+};
 
-  res.status(200).json({ success: true, message: `Operation ${operation} completed`, data: result });
-});
+/**
+ * Bulk user operations: activate, deactivate, suspend, delete (admin only)
+ */
+exports.bulkUserOperation = async (req, res, next) => {
+  try {
+    const { ids, operation } = req.body;
+    let result;
 
-// Approval system listing
-exports.getApprovals = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20 } = req.query;
-  const query = { status: 'pending' };
-  const users = await User.find(query).limit(Number(limit)).skip((Number(page) - 1) * Number(limit)).select('-password -refreshToken');
-  const total = await User.countDocuments(query);
+    switch (operation) {
+      case 'activate':
+        result = await User.updateMany({ _id: { $in: ids } }, { status: constants.USER_STATUS.ACTIVE });
+        break;
+      case 'deactivate':
+        result = await User.updateMany({ _id: { $in: ids } }, { status: constants.USER_STATUS.INACTIVE });
+        break;
+      case 'suspend':
+        result = await User.updateMany({ _id: { $in: ids } }, { status: constants.USER_STATUS.SUSPENDED });
+        break;
+      case 'delete':
+        result = await User.deleteMany({ _id: { $in: ids } });
+        break;
+      default:
+        return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('Invalid operation'));
+    }
 
-  res.status(200).json({
-    success: true,
-    data: users,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
-  });
-});
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(result, `Operation ${operation} completed`));
+  } catch (error) {
+    next(error);
+  }
+};
 
-// Approve user account
-exports.approveUser = asyncHandler(async (req, res) => {
-  const user = await User.findByIdAndUpdate(req.params.id, { status: 'active' }, { new: true });
+/**
+ * Get pending approval users (admin only)
+ */
+exports.getApprovals = async (req, res, next) => {
+  try {
+    const { page = constants.PAGINATION.DEFAULT_PAGE, limit = constants.PAGINATION.DEFAULT_LIMIT } = req.query;
+    const query = { status: constants.USER_STATUS.PENDING };
 
-  if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const total = await User.countDocuments(query);
+    const users = await User.find(query)
+      .select('-password -refreshToken')
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
 
-  res.status(200).json({ success: true, message: 'User approved', data: user });
-});
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(users.map(u => u.toJSON()), null, {
+      page, limit, total, totalPages: Math.ceil(total / limit)
+    }));
+  } catch (err) {
+    next(err);
+  }
+};
 
-// Reject user account
-exports.rejectUser = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id);
-  if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+/**
+ * Approve a user registration (admin only)
+ */
+exports.approveUser = async (req, res, next) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.id, { status: constants.USER_STATUS.ACTIVE }, { new: true });
+    if (!user) return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse('User not found'));
 
-  user.status = 'inactive';
-  await user.save();
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(user.toJSON(), 'User approved'));
+  } catch (err) {
+    next(err);
+  }
+};
 
-  res.status(200).json({ success: true, message: 'User rejected', data: user });
-});
+/**
+ * Reject a user registration (admin only)
+ */
+exports.rejectUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse('User not found'));
 
-// System stats placeholder
-exports.getSystemStats = asyncHandler(async (req, res) => {
-  // Implement statistics aggregation as needed
-  res.status(200).json({ success: true, data: { userCount: await User.countDocuments() } });
-});
+    user.status = constants.USER_STATUS.INACTIVE;
+    await user.save();
 
-// Get system settings placeholder
-exports.getSettings = asyncHandler(async (req, res) => {
-  // Return app settings from config or DB
-  res.status(200).json({ success: true, data: {} });
-});
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(user.toJSON(), 'User rejected'));
+  } catch (err) {
+    next(err);
+  }
+};
 
-// Update system settings placeholder
-exports.updateSettings = asyncHandler(async (req, res) => {
-  // Save settings to DB or config
-  res.status(200).json({ success: true, message: 'Settings updated' });
-});
+/**
+ * Get system stats overview (admin only)
+ */
+exports.getSystemStats = async (req, res, next) => {
+  try {
+    const userCount = await User.countDocuments();
+    // Additional stats (appointments, messages, etc.) can be added here
+
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse({ userCount }));
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Get system settings (admin only)
+ * Placeholder - implement settings storage/retrieval as needed
+ */
+exports.getSettings = async (req, res, next) => {
+  try {
+    // Current static or from DB
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse({}));
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Update system settings (admin only)
+ */
+exports.updateSettings = async (req, res, next) => {
+  try {
+    // Save settings to DB or config store as needed
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(null, 'Settings updated'));
+  } catch (err) {
+    next(err);
+  }
+};

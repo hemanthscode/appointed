@@ -1,205 +1,114 @@
 const Schedule = require('../models/Schedule');
-const Appointment = require('../models/Appointment');
-const { asyncHandler } = require('../middleware/errorHandler');
 const User = require('../models/User');
 const constants = require('../utils/constants');
+const helpers = require('../utils/helpers');
 
-// Normalize date to midnight UTC
-function normalizeDateOnly(dateInput) {
-  const d = new Date(dateInput);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
-}
+/**
+ * Get schedule slots for teacher by date with pagination
+ */
+exports.getSchedule = async (req, res, next) => {
+  try {
+    const { date, page = constants.PAGINATION.DEFAULT_PAGE, limit = constants.PAGINATION.DEFAULT_LIMIT } = req.query;
+    if (!date) return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('Date query parameter is required'));
 
-// Return start and end of day range
-function getDateRange(dateStr) {
-  const start = normalizeDateOnly(dateStr);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  return { start, end };
-}
+    const normalizedDate = new Date(date);
+    normalizedDate.setUTCHours(0, 0, 0, 0);
 
-// Convert time string like "9:00 AM" into a sortable number (900)
-function timeToNumber(timeStr) {
-  const [timePart, meridian] = timeStr.split(" ");
-  let [hours, minutes] = timePart.split(":").map(Number);
-  if (meridian === "PM" && hours !== 12) hours += 12;
-  else if (meridian === "AM" && hours === 12) hours = 0;
-  return hours * 100 + minutes;
-}
+    const query = { teacher: req.user._id, date: normalizedDate, isActive: true };
 
-// Sort slots by date ascending then time ascending logically
-function sortSlots(slots) {
-  return slots.sort((a, b) => {
-    if (a.date < b.date) return -1;
-    if (a.date > b.date) return 1;
-    return timeToNumber(a.time) - timeToNumber(b.time);
-  });
-}
+    const total = await Schedule.countDocuments(query);
+    let scheduleSlots = await Schedule.find(query)
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
 
-// Ensure fixed TIME_SLOTS exist for teacher on given date, create missing only
-async function ensureFixedSlots(teacherId, date) {
-  const normalizedDate = normalizeDateOnly(date);
+    // Sorting slots by time ascending
+    scheduleSlots = scheduleSlots.sort((a, b) => {
+      const timeToNum = (time) => {
+        const [t, mer] = time.split(' ');
+        let [h, m] = t.split(':').map(Number);
+        if (mer === 'PM' && h !== 12) h += 12;
+        if (mer === 'AM' && h === 12) h = 0;
+        return h * 100 + m;
+      };
+      return timeToNum(a.time) - timeToNum(b.time);
+    });
 
-  const existingSlots = await Schedule.find({ teacher: teacherId, date: normalizedDate });
-
-  const existingTimes = new Set(existingSlots.map(s => s.time));
-
-  const missingTimes = constants.TIME_SLOTS.filter(t => !existingTimes.has(t));
-
-  const slotsToInsert = missingTimes.map(time => ({
-    teacher: teacherId,
-    date: normalizedDate,
-    time,
-    duration: 60,
-    status: 'available',
-    isRecurring: false,
-    isActive: true
-  }));
-
-  if (slotsToInsert.length > 0) {
-    try {
-      await Schedule.insertMany(slotsToInsert, { ordered: false });
-    } catch (e) {
-      // Ignore duplicate key errors to avoid crashing
-      if (e.code !== 11000) throw e;
-    }
-  }
-}
-
-exports.getSchedule = asyncHandler(async (req, res) => {
-  const { date, page = 1, limit = 50 } = req.query;
-  if (!date) return res.status(400).json({ success: false, message: 'Date query parameter is required' });
-
-  const teacherId = req.user._id;
-  const normalizedDate = normalizeDateOnly(date);
-
-  await ensureFixedSlots(teacherId, normalizedDate);
-
-  const query = { teacher: teacherId, date: normalizedDate, isActive: true };
-
-  const total = await Schedule.countDocuments(query);
-
-  let scheduleSlots = await Schedule.find(query)
-    .populate('student', 'name email department year')
-    .populate('appointment', 'purpose message status')
-    .limit(Number(limit))
-    .skip((Number(page) - 1) * Number(limit));
-
-  scheduleSlots = sortSlots(scheduleSlots);
-
-  // Daily statistics
-  const stats = await Schedule.aggregate([
-    { $match: { teacher: teacherId, date: normalizedDate, isActive: true } },
-    { $group: { _id: '$status', count: { $sum: 1 } } }
-  ]);
-
-  const statusCounts = { available: 0, booked: 0, blocked: 0, unavailable: 0 };
-  stats.forEach(({ _id, count }) => { statusCounts[_id] = count; });
-
-  res.status(200).json({
-    success: true,
-    data: {
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse({
       scheduleSlots,
-      statistics: statusCounts,
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        totalPages: Math.ceil(total / Number(limit))
+      pagination: helpers.calculatePagination(total, page, limit)
+    }));
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Update multiple schedule slots (teacher only)
+ */
+exports.updateSchedule = async (req, res, next) => {
+  try {
+    const { scheduleSlots } = req.body;
+    if (!Array.isArray(scheduleSlots) || scheduleSlots.length === 0) {
+      return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('Schedule slots array is required'));
+    }
+
+    const updatedSlots = [];
+    const errors = [];
+
+    for (let i = 0; i < scheduleSlots.length; i++) {
+      const slotData = scheduleSlots[i];
+      try {
+        const slot = await Schedule.findOne({ teacher: req.user._id, date: new Date(slotData.date), time: slotData.time, isActive: true });
+        if (!slot) {
+          errors.push({ index: i, message: 'Slot does not exist' });
+          continue;
+        }
+        if (slot.status === constants.SCHEDULE_STATUS.BOOKED && slotData.status !== constants.SCHEDULE_STATUS.BOOKED) {
+          errors.push({ index: i, message: 'Cannot modify a booked slot' });
+          continue;
+        }
+        slot.status = slotData.status || slot.status;
+        slot.blockReason = slot.status === constants.SCHEDULE_STATUS.BLOCKED ? slotData.blockReason : undefined;
+        slot.notes = slotData.notes || slot.notes;
+        await slot.save();
+        updatedSlots.push(slot);
+      } catch (error) {
+        errors.push({ index: i, message: error.message });
       }
     }
-  });
-});
 
-exports.updateSchedule = asyncHandler(async (req, res) => {
-  const { scheduleSlots } = req.body;
-
-  if (!Array.isArray(scheduleSlots) || scheduleSlots.length === 0) {
-    return res.status(400).json({ success: false, message: 'Schedule slots array is required' });
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(
+      { updatedSlots, errors: errors.length > 0 ? errors : undefined },
+      'Schedule updated successfully'
+    ));
+  } catch (err) {
+    next(err);
   }
+};
 
-  const updatedSlots = [];
-  const errors = [];
+/**
+ * Get available slots for a teacher on given date
+ */
+exports.getAvailableSlots = async (req, res, next) => {
+  try {
+    const { teacherId } = req.params;
+    const { date } = req.query;
+    if (!date) return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('Date query parameter is required'));
 
-  function normalizeTime(timeStr) {
-    return timeStr.trim().toUpperCase();
-  }
+    const teacher = await User.findOne({ _id: teacherId, role: constants.USER_ROLES.TEACHER, status: constants.USER_STATUS.ACTIVE });
+    if (!teacher) return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse('Teacher not found'));
 
-  for (let i = 0; i < scheduleSlots.length; i++) {
-    const slotData = scheduleSlots[i];
-    try {
-      const normalizedDate = normalizeDateOnly(slotData.date);
-      const normalizedTime = normalizeTime(slotData.time);
-      let existingSlot = await Schedule.findOne({
-        teacher: req.user._id,
-        date: normalizedDate,
-        time: normalizedTime,
-        isActive: true
-      });
+    const normalizedDate = new Date(date);
+    normalizedDate.setUTCHours(0, 0, 0, 0);
 
-      if (!existingSlot) {
-        errors.push({ index: i, message: 'Slot does not exist; cannot create new slot outside fixed slots' });
-        continue;
-      }
+    const availableSlots = await Schedule.find({
+      teacher: teacherId,
+      date: normalizedDate,
+      status: constants.SCHEDULE_STATUS.AVAILABLE,
+      isActive: true
+    }).sort({ time: 1 });
 
-      if (existingSlot.status === 'booked' && slotData.status !== 'booked') {
-        errors.push({ index: i, message: 'Cannot modify booked time slot' });
-        continue;
-      }
-
-      existingSlot.status = slotData.status || existingSlot.status;
-      existingSlot.blockReason = existingSlot.status === 'blocked' ? slotData.blockReason : undefined;
-      existingSlot.notes = slotData.notes;
-      existingSlot.duration = slotData.duration || 60;
-      existingSlot.isRecurring = slotData.isRecurring || false;
-      existingSlot.recurringPattern = slotData.recurringPattern;
-      existingSlot.recurringEndDate = slotData.recurringEndDate ? new Date(slotData.recurringEndDate) : undefined;
-
-      await existingSlot.save();
-      updatedSlots.push(existingSlot);
-    } catch (error) {
-      errors.push({ index: i, message: error.message });
-    }
-  }
-
-  updatedSlots.sort((a, b) => {
-    if (a.date < b.date) return -1;
-    if (a.date > b.date) return 1;
-    return timeToNumber(a.time) - timeToNumber(b.time);
-  });
-
-  res.status(200).json({
-    success: true,
-    message: 'Schedule updated successfully',
-    data: { updatedSlots, errors: errors.length > 0 ? errors : undefined }
-  });
-});
-
-exports.getAvailableSlots = asyncHandler(async (req, res) => {
-  const { teacherId } = req.params;
-  const { date } = req.query;
-
-  if (!date) return res.status(400).json({ success: false, message: 'Date query parameter is required' });
-
-  const teacher = await User.findOne({ _id: teacherId, role: 'teacher', status: 'active' });
-  if (!teacher) return res.status(404).json({ success: false, message: 'Teacher not found' });
-
-  const normalizedDate = normalizeDateOnly(date);
-  await ensureFixedSlots(teacherId, normalizedDate);
-
-  let availableSlots = await Schedule.find({
-    teacher: teacherId,
-    date: normalizedDate,
-    status: 'available',
-    isActive: true
-  });
-
-  availableSlots = availableSlots.sort((a, b) => timeToNumber(a.time) - timeToNumber(b.time));
-
-  res.status(200).json({
-    success: true,
-    data: {
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse({
       teacher: {
         id: teacher._id,
         name: teacher.name,
@@ -207,95 +116,121 @@ exports.getAvailableSlots = asyncHandler(async (req, res) => {
         subject: teacher.subject
       },
       availableSlots
+    }));
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Block a specific slot (teacher only)
+ */
+exports.blockSlot = async (req, res, next) => {
+  try {
+    const { date, time, blockReason } = req.body;
+    const normalizedDate = new Date(date);
+    normalizedDate.setUTCHours(0, 0, 0, 0);
+
+    let slot = await Schedule.findOne({ teacher: req.user._id, date: normalizedDate, time });
+    if (!slot) {
+      return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('Cannot block non-existing slot'));
     }
-  });
-});
+    if (slot.status === constants.SCHEDULE_STATUS.BOOKED) {
+      return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('Cannot block a booked slot'));
+    }
 
-exports.blockSlot = asyncHandler(async (req, res) => {
-  const { date, time, blockReason, isRecurring, recurringPattern, recurringEndDate } = req.body;
-  const normalizedDate = normalizeDateOnly(date);
+    slot.status = constants.SCHEDULE_STATUS.BLOCKED;
+    slot.blockReason = blockReason;
+    await slot.save();
 
-  let existingSlot = await Schedule.findOne({ teacher: req.user._id, date: normalizedDate, time });
-
-  if (!existingSlot) {
-    return res.status(400).json({ success: false, message: 'Cannot block non-existing slot' });
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(slot, 'Time slot blocked'));
+  } catch (err) {
+    next(err);
   }
+};
 
-  if (existingSlot.status === 'booked') {
-    return res.status(400).json({ success: false, message: 'Cannot block a booked time slot' });
+/**
+ * Unblock a slot (teacher only)
+ */
+exports.unblockSlot = async (req, res, next) => {
+  try {
+    const { slotId } = req.params;
+
+    const slot = await Schedule.findOne({ _id: slotId, teacher: req.user._id });
+    if (!slot) return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse('Schedule slot not found'));
+    if (slot.status !== constants.SCHEDULE_STATUS.BLOCKED) {
+      return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('Only blocked slots can be unblocked'));
+    }
+
+    slot.status = constants.SCHEDULE_STATUS.AVAILABLE;
+    slot.blockReason = undefined;
+    await slot.save();
+
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(slot, 'Time slot unblocked'));
+  } catch (err) {
+    next(err);
   }
+};
 
-  existingSlot.status = 'blocked';
-  existingSlot.blockReason = blockReason;
-  existingSlot.isRecurring = isRecurring || false;
-  existingSlot.recurringPattern = recurringPattern;
-  existingSlot.recurringEndDate = recurringEndDate ? new Date(recurringEndDate) : undefined;
-  await existingSlot.save();
+/**
+ * Delete (soft) a slot (teacher only)
+ */
+exports.deleteSlot = async (req, res, next) => {
+  try {
+    const { slotId } = req.params;
 
-  res.status(200).json({ success: true, message: 'Time slot blocked', data: { slot: existingSlot } });
-});
+    const slot = await Schedule.findOne({ _id: slotId, teacher: req.user._id });
+    if (!slot) return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse('Schedule slot not found'));
+    if (slot.status === constants.SCHEDULE_STATUS.BOOKED) {
+      return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('Cannot delete a booked slot'));
+    }
 
-exports.unblockSlot = asyncHandler(async (req, res) => {
-  const {slotId} = req.params;
+    slot.isActive = false;
+    await slot.save();
 
-  const slot = await Schedule.findOne({ _id: slotId, teacher: req.user._id });
-  if (!slot) return res.status(404).json({ success: false, message: 'Schedule slot not found' });
-
-  if (slot.status !== 'blocked') {
-    return res.status(400).json({ success: false, message: 'Only blocked slots can be unblocked' });
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(null, 'Schedule slot deactivated'));
+  } catch (err) {
+    next(err);
   }
+};
 
-  slot.status = 'available';
-  slot.blockReason = undefined;
-  await slot.save();
+/**
+ * Get aggregated stats for slots on a date (teacher only)
+ */
+exports.getScheduleStats = async (req, res, next) => {
+  try {
+    const { date } = req.query;
+    if (!date) return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('Date query parameter is required'));
 
-  res.status(200).json({ success: true, message: 'Time slot unblocked', data: { slot } });
-});
+    const normalizedDate = new Date(date);
+    normalizedDate.setUTCHours(0, 0, 0, 0);
 
-exports.deleteSlot = asyncHandler(async (req, res) => {
-  const {slotId} = req.params;
+    const query = { teacher: req.user._id, date: normalizedDate, isActive: true };
 
-  const slot = await Schedule.findOne({ _id: slotId, teacher: req.user._id });
-  if (!slot) return res.status(404).json({ success: false, message: 'Schedule slot not found' });
+    const totalSlots = constants.TIME_SLOTS.length;
 
-  if (slot.status === 'booked') {
-    return res.status(400).json({ success: false, message: 'Cannot delete a booked time slot' });
-  }
+    const statsRaw = await Schedule.aggregate([
+      { $match: query },
+      { $group: { _id: "$status", count: { $sum: 1 } } }
+    ]);
 
-  // Soft delete preferred
-  slot.isActive = false;
-  await slot.save();
+    const statusCounts = {
+      available: 0,
+      booked: 0,
+      blocked: 0,
+      unavailable: 0
+    };
+    statsRaw.forEach(({ _id, count }) => {
+      statusCounts[_id] = count;
+    });
 
-  res.status(200).json({ success: true, message: 'Schedule slot deactivated' });
-});
-
-exports.getScheduleStats = asyncHandler(async (req, res) => {
-  const {date} = req.query;
-  if (!date) return res.status(400).json({ success: false, message: 'Date query param is required' });
-
-  const teacherId = req.user._id;
-  const normalizedDate = normalizeDateOnly(date);
-
-  const query = { teacher: teacherId, date: normalizedDate, isActive: true };
-
-  // The fixed number of slots depends on your constants
-  const totalSlots = constants.TIME_SLOTS.length;
-
-  const slotStatsRaw = await Schedule.aggregate([
-    { $match: query },
-    { $group: { _id: "$status", count: { $sum: 1 } } }
-  ]);
-
-  const statusCounts = { available: 0, booked: 0, blocked: 0, unavailable: 0 };
-  slotStatsRaw.forEach(({_id, count}) => { statusCounts[_id] = count; });
-
-  res.status(200).json({
-    success: true,
-    data: {
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse({
       date: normalizedDate,
       totalSlots,
       statusCounts,
-      remainingSlots: totalSlots - (statusCounts.booked + statusCounts.blocked),
-    }
-  });
-});
+      remainingSlots: totalSlots - (statusCounts.booked + statusCounts.blocked)
+    }));
+  } catch (err) {
+    next(err);
+  }
+};

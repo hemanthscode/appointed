@@ -1,67 +1,50 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
-
-const UPLOAD_DIR = 'uploads';
-const AVATAR_DIR = path.join(UPLOAD_DIR, 'avatars');
-const DOCUMENTS_DIR = path.join(UPLOAD_DIR, 'documents');
-
-[UPLOAD_DIR, AVATAR_DIR, DOCUMENTS_DIR].forEach((dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-});
+const constants = require('../utils/constants');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    let uploadDir = UPLOAD_DIR;
-
-    if (file.fieldname === 'avatar') {
-      uploadDir = AVATAR_DIR;
-    } else if (file.fieldname === 'documents') {
-      uploadDir = DOCUMENTS_DIR;
-    }
-
-    cb(null, uploadDir);
+    let folder = 'documents';
+    if (file.fieldname === 'avatar') folder = 'avatars';
+    cb(null, path.join(__dirname, '../../uploads', folder));
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    const baseName = file.fieldname + '-' + Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, baseName + ext);
+    const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    cb(null, filename);
   }
 });
 
 const fileFilter = (req, file, cb) => {
-  const acceptImage = file.mimetype.startsWith('image/');
-  const docTypes = [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'image/jpeg',
-    'image/png',
-    'image/gif'
-  ];
-
-  if (file.fieldname === 'avatar') {
-    cb(acceptImage ? null : new Error('Avatar must be an image file'), acceptImage);
-  } else if (file.fieldname === 'documents') {
-    cb(docTypes.includes(file.mimetype) ? null : new Error('Invalid document file type'), docTypes.includes(file.mimetype));
+  const allowedTypes = (file.fieldname === 'avatar')
+    ? constants.FILE_LIMITS.AVATAR.ALLOWED_TYPES
+    : constants.FILE_LIMITS.DOCUMENTS.ALLOWED_TYPES;
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
   } else {
-    cb(new Error('Unexpected field'), false);
+    cb(new Error('Invalid file type'), false);
   }
 };
 
-const upload = multer({
+const limits = {
+  fileSize: constants.FILE_LIMITS.DOCUMENTS.MAX_SIZE,
+  files: 10
+};
+
+const avatar = multer({
   storage,
   fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024,
-    files: 5
-  }
-});
+  limits: { fileSize: constants.FILE_LIMITS.AVATAR.MAX_SIZE, files: 1 },
+}).single('avatar');
+
+const documents = multer({
+  storage,
+  fileFilter,
+  limits
+}).array('documents', 10);
 
 module.exports = {
-  avatar: upload.single('avatar'),
-  documents: upload.array('documents', 5),
-  any: upload.any()
+  avatar,
+  documents,
+  any: multer({ storage, fileFilter, limits }).any()
 };

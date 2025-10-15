@@ -1,125 +1,169 @@
 const User = require('../models/User');
 const Appointment = require('../models/Appointment');
-const { asyncHandler } = require('../middleware/errorHandler');
 const fileService = require('../services/fileService');
+const constants = require('../utils/constants');
+const helpers = require('../utils/helpers');
 
-exports.getProfile = asyncHandler(async (req, res) => {
-  // Fetch user without populating appointments
-  const user = await User.findById(req.user._id).lean();
-
-  if (!user) {
-    return res.status(404).json({ success: false, error: 'User not found' });
+exports.getProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id).lean();
+    if (!user) {
+      return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse(constants.MESSAGES.ERROR.USER_NOT_FOUND));
+    }
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(user));
+  } catch (error) {
+    next(error);
   }
+};
 
-  res.status(200).json({ success: true, data: user });
-});
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const allowedFields = ['name', 'phone', 'address', 'bio', 'office'];
+    const updates = {};
+    allowedFields.forEach(f => {
+      if (req.body[f] !== undefined) updates[f] = req.body[f];
+    });
+    const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true, runValidators: true });
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(user.toJSON(), constants.MESSAGES.SUCCESS.PROFILE_UPDATED));
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.uploadAvatar = async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('No file uploaded'));
+
+    if (req.user.avatar) {
+      await fileService.deleteFile(req.user.avatar, 'avatars');
+    }
+
+    const user = await User.findByIdAndUpdate(req.user._id, { avatar: req.file.filename }, { new: true });
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse({ avatar: user.avatar, avatarUrl: `/uploads/avatars/${user.avatar}` }, constants.MESSAGES.SUCCESS.FILE_UPLOADED));
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getTeachers = async (req, res, next) => {
+  try {
+    const { page = constants.PAGINATION.DEFAULT_PAGE, limit = constants.PAGINATION.DEFAULT_LIMIT, department, subject, search, sort = '-rating' } = req.query;
+    const query = { role: constants.USER_ROLES.TEACHER, status: constants.USER_STATUS.ACTIVE };
+    if (department) query.department = department;
+    if (subject) query.subject = new RegExp(subject, 'i');
+    if (search) query.$or = [
+      { name: new RegExp(search, 'i') },
+      { subject: new RegExp(search, 'i') },
+      { department: new RegExp(search, 'i') }
+    ];
+
+    const teachers = await User.find(query)
+      .select('-password -refreshToken')
+      .sort(sort)
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit))
+      .populate('teacherAppointments', null, null, { match: { status: { $in: [constants.APPOINTMENT_STATUS.CONFIRMED, constants.APPOINTMENT_STATUS.COMPLETED] } } });
+
+    const total = await User.countDocuments(query);
+
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(teachers.map(t => t.toJSON()), null, {
+      page, limit, total, totalPages: Math.ceil(total / limit)
+    }));
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getStudents = async (req, res, next) => {
+  try {
+    const { page = constants.PAGINATION.DEFAULT_PAGE, limit = constants.PAGINATION.DEFAULT_LIMIT, department, year, search, sort = 'name' } = req.query;
+    const query = { role: constants.USER_ROLES.STUDENT };
+    if (department) query.department = department;
+    if (year) query.year = year;
+    if (search) query.$or = [
+      { name: new RegExp(search, 'i') },
+      { email: new RegExp(search, 'i') },
+      { department: new RegExp(search, 'i') }
+    ];
+
+    const students = await User.find(query)
+      .select('-password -refreshToken')
+      .sort(sort)
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
+    const total = await User.countDocuments(query);
+
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(students.map(s => s.toJSON()), null, {
+      page, limit, total, totalPages: Math.ceil(total / limit)
+    }));
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getUserById = async (req, res, next) => {
+  try {
+    let user = await User.findById(req.params.id).select('-password -refreshToken');
+    if (!user) {
+      return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse(constants.MESSAGES.ERROR.USER_NOT_FOUND));
+    }
+    if (user.role === constants.USER_ROLES.TEACHER) {
+      await user.populate('teacherAppointments');
+    } else if (user.role === constants.USER_ROLES.STUDENT) {
+      await user.populate('studentAppointments');
+    }
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(user.toJSON()));
+  } catch (error) {
+    next(error);
+  }
+};
 
 
-exports.updateProfile = asyncHandler(async (req, res) => {
-  const allowedFields = ['name', 'phone', 'address', 'bio', 'office'];
-  const updates = {};
-  allowedFields.forEach(f => {
-    if (f in req.body) updates[f] = req.body[f];
-  });
-  const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true, runValidators: true });
-  res.status(200).json({ success: true, message: 'Profile updated', data: user.toJSON() });
-});
+exports.updateUserStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    if (!Object.values(constants.USER_STATUS).includes(status)) {
+      return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('Invalid status'));
+    }
+    const user = await User.findByIdAndUpdate(req.params.id, { status }, { new: true, runValidators: true });
+    if (!user) {
+      return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse(constants.MESSAGES.ERROR.USER_NOT_FOUND));
+    }
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(user.toJSON(), 'User status updated'));
+  } catch (error) {
+    next(error);
+  }
+};
 
-exports.uploadAvatar = asyncHandler(async (req, res) => {
-  if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+exports.deleteUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse(constants.MESSAGES.ERROR.USER_NOT_FOUND));
+    }
+    if (user.avatar) {
+      await fileService.deleteFile(user.avatar, 'avatars');
+    }
+    await Appointment.deleteMany({ $or: [{ student: user._id }, { teacher: user._id }] });
+    await user.deleteOne();
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(null, 'User deleted successfully'));
+  } catch (error) {
+    next(error);
+  }
+};
 
-  if (req.user.avatar) await fileService.deleteFile(req.user.avatar, 'avatars');
-
-  const user = await User.findByIdAndUpdate(req.user._id, { avatar: req.file.filename }, { new: true });
-  res.status(200).json({ success: true, message: 'Avatar uploaded', data: { avatar: user.avatar, avatarUrl: `/uploads/avatars/${user.avatar}` } });
-});
-
-exports.getTeachers = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, department, subject, search, sort = '-rating' } = req.query;
-  const query = { role: 'teacher', status: 'active' };
-  if (department) query.department = department;
-  if (subject) query.subject = new RegExp(subject, 'i');
-  if (search) query.$or = [{ name: new RegExp(search, 'i') }, { subject: new RegExp(search, 'i') }, { department: new RegExp(search, 'i') }];
-  
-  const teachers = await User.find(query)
-    .select('-password -refreshToken')
-    .sort(sort)
-    .limit(Number(limit))
-    .skip((Number(page) - 1) * Number(limit))
-    .populate('appointments', null, null, { match: { status: { $in: ['confirmed', 'completed'] } } });
-
-  const total = await User.countDocuments(query);
-
-  // Additional stats can be added here
-
-  res.status(200).json({
-    success: true,
-    data: teachers.map(t => t.toJSON()),
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
-  });
-});
-
-exports.getStudents = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, department, year, search, sort = 'name' } = req.query;
-  const query = { role: 'student' };
-  if (department) query.department = department;
-  if (year) query.year = year;
-  if (search) query.$or = [{ name: new RegExp(search, 'i') }, { email: new RegExp(search, 'i') }, { department: new RegExp(search, 'i') }];
-
-  const students = await User.find(query)
-    .select('-password -refreshToken')
-    .sort(sort)
-    .limit(Number(limit))
-    .skip((Number(page) - 1) * Number(limit));
-  const total = await User.countDocuments(query);
-
-  res.status(200).json({
-    success: true,
-    data: students.map(s => s.toJSON()),
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
-  });
-});
-
-exports.getUserById = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id).select('-password -refreshToken')
-    .populate('appointments');
-
-  if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-
-  res.status(200).json({ success: true, data: user.toJSON() });
-});
-
-exports.updateUserStatus = asyncHandler(async (req, res) => {
-  const { status } = req.body;
-  const validStatuses = ['pending', 'active', 'inactive', 'suspended'];
-  if (!validStatuses.includes(status)) return res.status(400).json({ success: false, message: 'Invalid status' });
-
-  const user = await User.findByIdAndUpdate(req.params.id, { status }, { new: true, runValidators: true });
-  if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-
-  res.status(200).json({ success: true, message: 'User status updated', data: user.toJSON() });
-});
-
-exports.deleteUser = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id);
-  if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-
-  if (user.avatar) await fileService.deleteFile(user.avatar, 'avatars');
-  await Appointment.deleteMany({ $or: [{ student: user._id }, { teacher: user._id }] });
-  await user.deleteOne();
-
-  res.status(200).json({ success: true, message: 'User deleted successfully' });
-});
-
-exports.changePassword = asyncHandler(async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  const user = await User.findById(req.user._id).select('+password');
-
-  const validCurr = await user.comparePassword(currentPassword);
-  if (!validCurr) return res.status(400).json({ success: false, message: 'Current password incorrect' });
-
-  user.password = newPassword;
-  await user.save();
-
-  res.status(200).json({ success: true, message: 'Password changed successfully' });
-});
+exports.changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id).select('+password');
+    const validCurr = await user.comparePassword(currentPassword);
+    if (!validCurr) {
+      return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('Current password incorrect'));
+    }
+    user.password = newPassword;
+    await user.save();
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(null, 'Password changed successfully'));
+  } catch (error) {
+    next(error);
+  }
+};

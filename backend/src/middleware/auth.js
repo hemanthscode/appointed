@@ -1,63 +1,57 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
 const authConfig = require('../config/auth');
+const User = require('../models/User');
+const constants = require('../utils/constants');
+const helpers = require('../utils/helpers');
 
 /**
- * Protect routes - Require valid JWT and active user
+ * Require valid JWT token and active user
  */
 const protect = async (req, res, next) => {
   try {
     let token;
-
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
     }
-
     if (!token) {
-      return res.status(401).json({ success: false, message: 'Not authorized to access this route' });
+      return res.status(constants.HTTP_STATUS.UNAUTHORIZED).json(helpers.errorResponse(constants.MESSAGES.ERROR.UNAUTHORIZED));
     }
-
     try {
       const decoded = authConfig.verifyToken(token);
       const user = await User.findById(decoded.id).select('-password');
-
-      if (!user || user.status !== 'active') {
-        return res.status(401).json({ success: false, message: 'User not found or inactive' });
+      if (!user || user.status !== constants.USER_STATUS.ACTIVE) {
+        return res.status(constants.HTTP_STATUS.UNAUTHORIZED).json(helpers.errorResponse(constants.MESSAGES.ERROR.UNAUTHORIZED));
       }
 
       req.user = user;
       next();
-    } catch (err) {
-      return res.status(401).json({ success: false, message: 'Invalid token' });
+    } catch {
+      return res.status(constants.HTTP_STATUS.UNAUTHORIZED).json(helpers.errorResponse(constants.MESSAGES.ERROR.INVALID_TOKEN));
     }
-  } catch (err) {
-    return res.status(500).json({ success: false, message: 'Server error in authentication' });
+  } catch {
+    res.status(constants.HTTP_STATUS.INTERNAL_SERVER_ERROR).json(helpers.errorResponse());
   }
 };
 
 /**
- * Optional authentication - Attaches user if token valid, else proceeds without user
+ * Optional authentication (attaches user if valid token, else continues)
  */
 const optionalAuth = async (req, res, next) => {
   try {
     let token;
-
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
     }
-
     if (token) {
       try {
         const decoded = authConfig.verifyToken(token);
         const user = await User.findById(decoded.id).select('-password');
-        if (user && user.status === 'active') {
+        if (user && user.status === constants.USER_STATUS.ACTIVE) {
           req.user = user;
         }
       } catch {
-        // Invalid token - proceed without user
+        // invalid token, continue without user
       }
     }
-
     next();
   } catch {
     next();

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const constants = require('../utils/constants');
 
 const departmentSchema = new mongoose.Schema({
   name: {
@@ -14,12 +15,31 @@ const departmentSchema = new mongoose.Schema({
     uppercase: true,
     trim: true
   },
-  description: { type: String, maxlength: [500, 'Description cannot exceed 500 characters'] },
-  head: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  subjects: [{ name: String, code: String, credits: Number }],
-  isActive: { type: Boolean, default: true },
-  teacherCount: { type: Number, default: 0 },
-  studentCount: { type: Number, default: 0 }
+  description: {
+    type: String,
+    maxlength: [500, 'Description cannot exceed 500 characters']
+  },
+  head: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: constants.COLLECTIONS.USERS
+  },
+  subjects: [{
+    name: String,
+    code: String,
+    credits: Number
+  }],
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  teacherCount: {
+    type: Number,
+    default: 0
+  },
+  studentCount: {
+    type: Number,
+    default: 0
+  }
 }, {
   timestamps: true
 });
@@ -27,4 +47,4 @@ const departmentSchema = new mongoose.Schema({
 departmentSchema.index({ name: 1 });
 departmentSchema.index({ code: 1 });
 
-module.exports = mongoose.model('Department', departmentSchema);
+module.exports = mongoose.model(constants.COLLECTIONS.DEPARTMENTS, departmentSchema);

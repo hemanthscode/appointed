@@ -56,65 +56,6 @@ const fileService = {
       '.txt': 'text/plain'
     };
     return mimeTypes[ext] || 'application/octet-stream';
-  },
-
-  async cleanupOldFiles(folder = '', olderThanDays = 30) {
-    try {
-      const uploadsPath = path.join(__dirname, '../../uploads', folder);
-      const files = await fs.readdir(uploadsPath);
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
-
-      let deletedCount = 0;
-      for (const file of files) {
-        const filePath = path.join(uploadsPath, file);
-        const stats = await fs.stat(filePath);
-        if (stats.birthtime < cutoffDate) {
-          await fs.unlink(filePath);
-          deletedCount++;
-        }
-      }
-
-      console.info(`Cleaned up ${deletedCount} old files from ${folder || 'uploads'}`);
-      return deletedCount;
-    } catch (error) {
-      console.warn(`File cleanup error: ${error.message}`);
-      return 0;
-    }
-  },
-
-  async getDirectorySize(folder = '') {
-    try {
-      const uploadsPath = path.join(__dirname, '../../uploads', folder);
-      const files = await fs.readdir(uploadsPath);
-      let totalSize = 0;
-
-      for (const file of files) {
-        const filePath = path.join(uploadsPath, file);
-        const stats = await fs.stat(filePath);
-        totalSize += stats.size;
-      }
-
-      return totalSize;
-    } catch (error) {
-      console.warn(`Get directory size error: ${error.message}`);
-      return 0;
-    }
-  },
-
-  async backupFile(filename, folder = '') {
-    try {
-      const sourcePath = path.join(__dirname, '../../uploads', folder, filename);
-      const backupFolder = path.join(__dirname, '../../uploads', 'backups');
-      await fs.mkdir(backupFolder, { recursive: true });
-      const backupPath = path.join(backupFolder, `${Date.now()}_${filename}`);
-      await fs.copyFile(sourcePath, backupPath);
-      console.info(`File backed up: ${backupPath}`);
-      return backupPath;
-    } catch (error) {
-      console.warn(`File backup error: ${error.message}`);
-      return null;
-    }
   }
 };
 

@@ -1,184 +1,200 @@
-const User = require('../models/User');
 const authService = require('../services/authService');
 const emailService = require('../services/emailService');
-const { asyncHandler } = require('../middleware/errorHandler');
-const validators = require('../utils/validators');
-const Schedule = require('../models/Schedule');
+const User = require('../models/User');
 const constants = require('../utils/constants');
+const helpers = require('../utils/helpers');
+const validators = require('../utils/validators');
 
-// Helper to seed default schedule slots for a new teacher
-async function seedDefaultScheduleSlots(teacherId, days = 14) {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+/**
+ * Register new user
+ */
+exports.register = async (req, res, next) => {
+  try {
+    const { name, email, password, role, department, year, subject } = req.body;
 
-  const slotsToInsert = [];
-
-  for (let day = 0; day < days; day++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() + day);
-
-    // Skip weekends if desired
-    if ([0, 6].includes(date.getDay())) continue;
-
-    for (const time of constants.TIME_SLOTS) {
-      slotsToInsert.push({
-        teacher: teacherId,
-        date,
-        time,
-        duration: 60,
-        status: 'available',
-        isRecurring: false,
-        isActive: true
-      });
+    // Central synchronous validation
+    const { isValid, errors } = validators.validateUser(req.body);
+    if (!isValid) {
+      return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse(constants.MESSAGES.ERROR.VALIDATION_ERROR, errors));
     }
-  }
 
-  try {
-    await Schedule.insertMany(slotsToInsert, { ordered: false });
-  } catch (e) {
-    // Ignore duplicate key errors silently (in case slots already seeded)
-    if (e.code !== 11000) throw e;
-  }
-}
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(constants.HTTP_STATUS.CONFLICT).json(helpers.errorResponse(constants.MESSAGES.ERROR.EMAIL_EXISTS));
+    }
 
-exports.register = asyncHandler(async (req, res) => {
-  const { name, email, password, role, department, year, subject } = req.body;
+    const newUserData = { name, email, password, role, department };
+    if (role === constants.USER_ROLES.STUDENT) newUserData.year = year;
+    if (role === constants.USER_ROLES.TEACHER) newUserData.subject = subject;
 
-  const existing = await User.findOne({ email });
-  if (existing) {
-    return res.status(400).json({ success: false, message: 'User already exists with this email' });
-  }
+    const user = await User.create(newUserData);
 
-  const userData = { name, email, password, role, department };
-  if (role === 'student') userData.year = year;
-  if (role === 'teacher') userData.subject = subject;
+    // Generate tokens
+    const tokens = authService.generateTokens(user);
+    user.refreshToken = tokens.refreshToken;
+    user.lastLogin = new Date();
+    await user.save();
 
-  const user = await User.create(userData);
+    // Send welcome email
+    try {
+      await emailService.sendWelcomeEmail(user);
+    } catch (err) {
+      // Fail silently but log
+      console.warn('Failed to send welcome email:', err.message);
+    }
 
-  // Seed default schedule slots if new user is a teacher
-  if (role === 'teacher') {
-    await seedDefaultScheduleSlots(user._id, 14); // Seed slots for next 14 days
-  }
-
-  const tokens = authService.generateTokens(user);
-  user.refreshToken = tokens.refreshToken;
-  user.lastLogin = new Date();
-  await user.save();
-
-  try {
-    await emailService.sendWelcomeEmail(user);
-  } catch (e) {
-    // Non-blocking: log error as needed
-  }
-
-  res.status(201).json({
-    success: true,
-    message: 'User registered successfully',
-    data: {
+    return res.status(constants.HTTP_STATUS.CREATED).json(helpers.successResponse({
       token: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       user: user.toJSON()
+    }, constants.MESSAGES.SUCCESS.USER_REGISTERED));
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * User login
+ */
+exports.login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email }).select('+password');
+    if (!user) {
+      return res.status(constants.HTTP_STATUS.UNAUTHORIZED).json(helpers.errorResponse(constants.MESSAGES.ERROR.INVALID_CREDENTIALS));
     }
-  });
-});
 
+    const valid = await user.comparePassword(password);
+    if (!valid) {
+      return res.status(constants.HTTP_STATUS.UNAUTHORIZED).json(helpers.errorResponse(constants.MESSAGES.ERROR.INVALID_CREDENTIALS));
+    }
 
-exports.login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+    if (user.status === constants.USER_STATUS.SUSPENDED) {
+      return res.status(constants.HTTP_STATUS.UNAUTHORIZED).json(helpers.errorResponse('Your account has been suspended. Please contact admin.'));
+    }
 
-  const user = await User.findOne({ email }).select('+password');
-  if (!user) {
-    return res.status(401).json({ success: false, message: 'Invalid email or password' });
-  }
+    const message = user.status === constants.USER_STATUS.PENDING ? 'Login successful. Your account is pending approval.' : constants.MESSAGES.SUCCESS.LOGIN_SUCCESS;
 
-  const validPass = await user.comparePassword(password);
-  if (!validPass) {
-    return res.status(401).json({ success: false, message: 'Invalid email or password' });
-  }
+    const tokens = authService.generateTokens(user);
+    user.refreshToken = tokens.refreshToken;
+    user.lastLogin = new Date();
+    await user.save();
 
-  if (user.status === 'suspended') {
-    return res.status(401).json({ success: false, message: 'Your account has been suspended. Please contact admin.' });
-  }
-
-  const message = user.status === 'pending' ? 'Login successful. Your account is pending approval.' : 'Login successful';
-  const tokens = authService.generateTokens(user);
-  user.refreshToken = tokens.refreshToken;
-  user.lastLogin = new Date();
-  await user.save();
-
-  res.status(200).json({
-    success: true,
-    message,
-    data: {
+    return res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse({
       token: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       user: user.toJSON()
-    }
-  });
-});
+    }, message));
+  } catch (error) {
+    next(error);
+  }
+};
 
-exports.logout = asyncHandler(async (req, res) => {
-  await authService.invalidateRefreshToken(req.user._id);
-  res.status(200).json({ success: true, message: 'Logout successful' });
-});
-
-exports.refreshToken = asyncHandler(async (req, res) => {
-  const { refreshToken } = req.body;
-  if (!refreshToken) return res.status(401).json({ success: false, message: 'Refresh token required' });
-
+/**
+ * Logout user (invalidate refresh token)
+ */
+exports.logout = async (req, res, next) => {
   try {
+    await authService.invalidateRefreshToken(req.user._id);
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(null, constants.MESSAGES.SUCCESS.LOGOUT_SUCCESS));
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Refresh access token with refresh token
+ */
+exports.refreshToken = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(constants.HTTP_STATUS.UNAUTHORIZED).json(helpers.errorResponse('Refresh token required'));
+    }
+
     const { user } = await authService.verifyToken(refreshToken);
-    if (user.refreshToken !== refreshToken) throw new Error('Invalid refresh token');
+    if (user.refreshToken !== refreshToken) {
+      throw new Error('Invalid refresh token');
+    }
 
     const tokens = authService.generateTokens(user);
     user.refreshToken = tokens.refreshToken;
     await user.save();
 
-    res.status(200).json({
-      success: true,
-      data: {
-        token: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        user: user.toJSON()
-      }
-    });
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse({
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: user.toJSON()
+    }));
   } catch {
-    res.status(401).json({ success: false, message: 'Invalid refresh token' });
+    res.status(constants.HTTP_STATUS.UNAUTHORIZED).json(helpers.errorResponse(constants.MESSAGES.ERROR.INVALID_TOKEN));
   }
-});
+};
 
-exports.forgotPassword = asyncHandler(async (req, res) => {
-  const { email } = req.body;
-  const user = await User.findOne({ email });
-  if (!user) return res.status(404).json({ success: false, message: 'No user found with this email' });
-
-  const token = await authService.createPasswordResetToken(email);
-
+/**
+ * Initiate forgot password (send reset email)
+ */
+exports.forgotPassword = async (req, res, next) => {
   try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse(constants.MESSAGES.ERROR.USER_NOT_FOUND));
+    }
+
+    const token = await authService.createPasswordResetToken(email);
     await emailService.sendPasswordResetEmail(user, token);
-    res.status(200).json({ success: true, message: 'Password reset email sent' });
-  } catch (e) {
-    user.passwordResetToken = null;
-    user.passwordResetExpires = null;
-    await user.save();
-    res.status(500).json({ success: false, message: 'Failed to send reset email' });
+
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(null, constants.MESSAGES.SUCCESS.PASSWORD_RESET_SENT));
+  } catch (error) {
+    next(error);
   }
-});
+};
 
-exports.resetPassword = asyncHandler(async (req, res) => {
-  const { token, password } = req.body;
-  const user = await authService.verifyPasswordToken(token);
+/**
+ * Reset password with token
+ */
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+    const user = await authService.resetPassword(token, password);
+    const authToken = user.generateAuthToken();
 
-  await authService.resetPassword(token, password);
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse({ token: authToken }, constants.MESSAGES.SUCCESS.PASSWORD_RESET_SUCCESS));
+  } catch (error) {
+    next(error);
+  }
+};
 
-  const authToken = user.generateAuthToken();
+/**
+ * Get logged-in user's profile
+ */
+exports.getMe = async (req, res, next) => {
+  try {
+    const populateField = req.user.role === constants.USER_ROLES.STUDENT
+      ? 'studentAppointments'
+      : req.user.role === constants.USER_ROLES.TEACHER
+        ? 'teacherAppointments'
+        : ''; // No appointments for admin by default, or add if desired
 
-  res.status(200).json({ success: true, message: 'Password reset successful', data: { token: authToken } });
-});
+    const query = User.findById(req.user._id).select('-password -refreshToken');
 
-exports.getMe = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id)
-    .populate('appointments', null, null, { sort: { date: -1 } });
+    if (populateField) {
+      query.populate({
+        path: populateField,
+        options: { sort: { date: -1 } }
+      });
+    }
 
-  res.status(200).json({ success: true, data: user.toJSON() });
-});
+    const user = await query;
+
+    if (!user) {
+      return res.status(constants.HTTP_STATUS.NOT_FOUND).json(helpers.errorResponse(constants.MESSAGES.ERROR.USER_NOT_FOUND));
+    }
+
+    res.status(constants.HTTP_STATUS.OK).json(helpers.successResponse(user.toJSON()));
+  } catch (error) {
+    next(error);
+  }
+};

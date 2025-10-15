@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const constants = require('../utils/constants');
 
 const createTransporter = () => {
   if (process.env.NODE_ENV === 'production') {
@@ -10,7 +11,6 @@ const createTransporter = () => {
       }
     });
   }
-  // Development using Ethereal
   return nodemailer.createTransport({
     host: 'smtp.ethereal.email',
     port: 587,
@@ -43,13 +43,12 @@ const sendEmail = async (options) => {
 };
 
 const emailTemplates = {
-  // Template methods return { subject, html } objects for different email types
   welcome: (user) => ({
     subject: 'Welcome to Appointed!',
     html: `<div style="font-family: Arial; max-width:600px; margin:auto;">
       <h1>Welcome to Appointed!</h1>
       <p>Hi ${user.name}, your account has been created successfully. 
-      ${user.status==='pending' ? 'Please wait for admin approval.' : 'You can now book appointments.'}</p>
+      ${user.status === 'pending' ? 'Please wait for admin approval.' : 'You can now book appointments.'}</p>
       <p><strong>Email:</strong> ${user.email}</p>
       </div>`
   }),

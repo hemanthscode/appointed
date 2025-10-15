@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const authConfig = require('../config/auth');
+const constants = require('../utils/constants');
 
 const authService = {
   generateTokens(user) {
@@ -21,15 +22,15 @@ const authService = {
     try {
       const decoded = authConfig.verifyToken(token);
       const user = await User.findById(decoded.id).select('-password');
-      if (!user || user.status !== 'active') throw new Error('User not found or inactive');
+      if (!user || user.status !== constants.USER_STATUS.ACTIVE) throw new Error('User not found or inactive');
       return { user, decoded };
-    } catch (err) {
+    } catch {
       throw new Error('Invalid token');
     }
   },
 
   async hashPassword(password) {
-    return await bcrypt.hash(password, authConfig.passwordSaltRounds);
+    return await bcrypt.hash(password, parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12);
   },
 
   async comparePassword(plainPassword, hashedPassword) {
@@ -42,40 +43,24 @@ const authService = {
 
   validatePassword(password) {
     const errors = [];
-
     if (!password) {
       errors.push('Password is required');
       return { isValid: false, errors };
     }
-
-    if (password.length < authConfig.passwordMinLength) {
-      errors.push(`Password must be at least ${authConfig.passwordMinLength} characters long`);
-    }
-    if (!/(?=.*[a-z])/.test(password)) {
-      errors.push('Password must contain at least one lowercase letter');
-    }
-    if (!/(?=.*[A-Z])/.test(password)) {
-      errors.push('Password must contain at least one uppercase letter');
-    }
-    if (!/(?=.*\d)/.test(password)) {
-      errors.push('Password must contain at least one number');
-    }
-    if (!/(?=.*[!@#$%^&*])/.test(password)) {
-      errors.push('Password must contain at least one special character');
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
+    if (password.length < 8) errors.push('Password must be at least 8 characters long');
+    if (!/(?=.*[a-z])/.test(password)) errors.push('Password must contain at least one lowercase letter');
+    if (!/(?=.*[A-Z])/.test(password)) errors.push('Password must contain at least one uppercase letter');
+    if (!/(?=.*\d)/.test(password)) errors.push('Password must contain at least one number');
+    if (!/(?=.*[!@#$%^&*])/.test(password)) errors.push('Password must contain at least one special character');
+    return { isValid: errors.length === 0, errors };
   },
 
   async canUserLogin(email) {
     const user = await User.findOne({ email });
     if (!user) return { canLogin: false, reason: 'User not found' };
-    if (user.status === 'suspended') return { canLogin: false, reason: 'Account suspended' };
-    if (user.status === 'inactive') return { canLogin: false, reason: 'Account inactive' };
-    if (user.status === 'pending') return { canLogin: false, reason: 'Account pending approval' };
+    if (user.status === constants.USER_STATUS.SUSPENDED) return { canLogin: false, reason: 'Account suspended' };
+    if (user.status === constants.USER_STATUS.INACTIVE) return { canLogin: false, reason: 'Account inactive' };
+    if (user.status === constants.USER_STATUS.PENDING) return { canLogin: false, reason: 'Account pending approval' };
     return { canLogin: true, user };
   },
 
@@ -90,13 +75,10 @@ const authService = {
   async createPasswordResetToken(email) {
     const user = await User.findOne({ email });
     if (!user) throw new Error('No user found with this email');
-
     const resetToken = this.generateResetToken();
-
     user.passwordResetToken = resetToken;
-    user.passwordResetExpires = new Date(Date.now() + authConfig.passwordResetExpire);
+    user.passwordResetExpires = new Date(Date.now() + (parseInt(process.env.PASSWORD_RESET_EXPIRE) || constants.JWT.PASSWORD_RESET_EXPIRE));
     await user.save();
-
     return resetToken;
   },
 
@@ -111,6 +93,7 @@ const authService = {
 
   async resetPassword(token, newPassword) {
     const user = await this.verifyPasswordResetToken(token);
+
     const { isValid, errors } = this.validatePassword(newPassword);
     if (!isValid) throw new Error(errors.join('. '));
 
@@ -120,34 +103,6 @@ const authService = {
     await user.save();
 
     return user;
-  },
-
-  checkPermission(user, resource, action) {
-    const permissions = {
-      admin: {
-        users: ['read', 'write', 'delete'],
-        appointments: ['read', 'write', 'delete'],
-        schedule: ['read', 'write'],
-        messages: ['read', 'write', 'delete'],
-        system: ['read', 'write']
-      },
-      teacher: {
-        users: ['read'], // can read students
-        appointments: ['read', 'write'],
-        schedule: ['read', 'write'],
-        messages: ['read', 'write'],
-        students: ['read']
-      },
-      student: {
-        users: ['read'],
-        appointments: ['read', 'write'],
-        schedule: ['read'],
-        messages: ['read', 'write'],
-        teachers: ['read']
-      }
-    };
-
-    return permissions[user.role]?.[resource]?.includes(action) || false;
   }
 };
 

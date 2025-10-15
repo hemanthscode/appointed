@@ -1,70 +1,43 @@
+const constants = require('../utils/constants');
+const helpers = require('../utils/helpers');
+
 /**
- * Not Found Middleware
+ * 404 Not Found Middleware
  */
 const notFound = (req, res, next) => {
-  const error = new Error(`Not found - ${req.originalUrl}`);
-  res.status(404);
-  next(error);
+  res.status(constants.HTTP_STATUS.NOT_FOUND);
+  next(new Error(`Not found - ${req.originalUrl}`));
 };
 
 /**
- * Global Error Handler
+ * Global Error Handler Middleware
  */
 const errorHandler = (err, req, res, next) => {
-  let error = { ...err };
+  let statusCode = res.statusCode !== 200 ? res.statusCode : constants.HTTP_STATUS.INTERNAL_SERVER_ERROR;
+  let message = err.message || 'Server Error';
 
-  error.message = err.message;
-
-  // Log error for debugging
-  console.error(err);
-
-  // Specific Mongoose errors
+  // Specific error handling
   if (err.name === 'CastError') {
-    error = { message: 'Resource not found', statusCode: 404 };
-  }
-  if (err.code === 11000) {
-    let message = 'Duplicate field value entered';
-    if (err.keyValue?.email) {
-      message = 'Email already exists';
-    }
-    error = { message, statusCode: 400 };
-  }
-  if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map(val => val.message).join('. ');
-    error = { message, statusCode: 400 };
-  }
-  if (err.name === 'JsonWebTokenError') {
-    error = { message: 'Invalid token', statusCode: 401 };
-  }
-  if (err.name === 'TokenExpiredError') {
-    error = { message: 'Token expired', statusCode: 401 };
-  }
-  if (err.code === 'LIMIT_FILE_SIZE') {
-    error = { message: 'File too large', statusCode: 400 };
-  }
-  if (err.code === 'LIMIT_FILE_COUNT') {
-    error = { message: 'Too many files', statusCode: 400 };
-  }
-  if (err.status === 429) {
-    error = { message: 'Too many requests, please try again later', statusCode: 429 };
+    message = 'Resource not found';
+    statusCode = constants.HTTP_STATUS.NOT_FOUND;
+  } else if (err.code === 11000) {
+    message = 'Duplicate field value entered';
+    statusCode = constants.HTTP_STATUS.CONFLICT;
+  } else if (err.name === 'ValidationError') {
+    message = Object.values(err.errors).map(e => e.message).join('. ');
+    statusCode = constants.HTTP_STATUS.UNPROCESSABLE_ENTITY;
+  } else if (err.name === 'JsonWebTokenError') {
+    message = 'Invalid token';
+    statusCode = constants.HTTP_STATUS.UNAUTHORIZED;
+  } else if (err.name === 'TokenExpiredError') {
+    message = 'Token expired';
+    statusCode = constants.HTTP_STATUS.UNAUTHORIZED;
   }
 
-  res.status(error.statusCode || 500).json({
-    success: false,
-    message: error.message || 'Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-};
-
-/**
- * Async Handler Wrapper
- */
-const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
+  res.status(statusCode).json(helpers.errorResponse(message));
 };
 
 module.exports = {
   notFound,
-  errorHandler,
-  asyncHandler
+  errorHandler
 };
