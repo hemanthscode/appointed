@@ -1,3 +1,4 @@
+// src/utils/validators.js
 const validator = require('validator');
 
 const validators = {
@@ -47,8 +48,10 @@ const validators = {
 
   validateAppointment(appointmentData) {
     const errors = [];
-    const { teacher, date, time, purpose } = appointmentData;
+    const { teacher, date, time, purpose, subject } = appointmentData;
+
     if (!teacher) errors.push('Teacher is required');
+    if (!subject) errors.push('Subject is required');
 
     if (!date) errors.push('Date is required');
     else {
@@ -172,103 +175,69 @@ const validators = {
     return { isValid: valid, errors: valid ? [] : ['Invalid ID format'] };
   },
 
-  validateBulkOperation(bulkData) {
-    const errors = [];
-    const { ids, operation } = bulkData;
-
-    if (!Array.isArray(ids) || ids.length === 0) errors.push('IDs array is required');
-    else ids.forEach((id, idx) => {
-      if (!this.validateObjectId(id).isValid) errors.push(`Invalid ID at index ${idx}`);
-    });
-
-    const validOps = ['activate', 'deactivate', 'suspend', 'delete'];
-    if (!operation || !validOps.includes(operation)) errors.push('Valid operation is required');
-
-    return { isValid: errors.length === 0, errors };
+  validateMongoId(field = 'id') {
+    return (req, res, next) => {
+      const id = req.params[field] || req.body[field] || req.query[field];
+      const { isValid, errors } = validators.validateObjectId(id);
+      if (!isValid) {
+        return res.status(400).json({ success: false, message: errors[0] });
+      }
+      next();
+    };
   },
 
-  validateRating(ratingData) {
-    const errors = [];
-    const { rating, feedback } = ratingData;
-
-    if (rating === undefined || rating === null) errors.push('Rating is required');
-    else if (isNaN(parseInt(rating)) || rating < 1 || rating > 5) errors.push('Rating must be between 1 and 5');
-
-    if (feedback !== undefined && feedback && feedback.length > 500) errors.push('Feedback cannot exceed 500 characters');
-
-    return { isValid: errors.length === 0, errors };
-  },
-
-  validateSettings(settings) {
-    const errors = [];
-    if (!settings || typeof settings !== 'object') return { isValid: false, errors: ['Settings object is required'] };
-
-    if (settings.appointments) {
-      const { maxAdvanceBookingDays, minAdvanceBookingHours, defaultAppointmentDuration } = settings.appointments;
-
-      if (maxAdvanceBookingDays !== undefined) {
-        const days = parseInt(maxAdvanceBookingDays);
-        if (isNaN(days) || days < 1 || days > 365) errors.push('Max advance booking days must be between 1 and 365');
+  validateMongoIdArray(field = 'participants') {
+    return (req, res, next) => {
+      const ids = req.body[field];
+      if (!Array.isArray(ids)) {
+        return res.status(400).json({ success: false, message: `${field} must be an array` });
       }
-
-      if (minAdvanceBookingHours !== undefined) {
-        const hours = parseInt(minAdvanceBookingHours);
-        if (isNaN(hours) || hours < 0 || hours > 72) errors.push('Min advance booking hours must be between 0 and 72');
-      }
-
-      if (defaultAppointmentDuration !== undefined) {
-        const duration = parseInt(defaultAppointmentDuration);
-        if (isNaN(duration) || duration < 15 || duration > 240) errors.push('Default appointment duration must be between 15 and 240 minutes');
-      }
-    }
-
-    return { isValid: errors.length === 0, errors };
-  },
-
-  validate(data, rules) {
-    const errors = [];
-    for (const [field, rule] of Object.entries(rules)) {
-      const value = data[field];
-
-      if (rule.required && (value === undefined || value === null || value === '')) {
-        errors.push(`${rule.label || field} is required`);
-        continue;
-      }
-      if (value === undefined || value === null) continue;
-
-      if (rule.type && typeof value !== rule.type) errors.push(`${rule.label || field} must be of type ${rule.type}`);
-
-      if (rule.type === 'string') {
-        if (rule.minLength && value.length < rule.minLength) errors.push(`${rule.label || field} must be at least ${rule.minLength} characters`);
-        if (rule.maxLength && value.length > rule.maxLength) errors.push(`${rule.label || field} cannot exceed ${rule.maxLength} characters`);
-        if (rule.pattern && !rule.pattern.test(value)) errors.push(`${rule.label || field} format is invalid`);
-      }
-
-      if (rule.type === 'number') {
-        const num = parseFloat(value);
-        if (isNaN(num)) errors.push(`${rule.label || field} must be a valid number`);
-        else {
-          if (rule.min !== undefined && num < rule.min) errors.push(`${rule.label || field} must be at least ${rule.min}`);
-          if (rule.max !== undefined && num > rule.max) errors.push(`${rule.label || field} cannot exceed ${rule.max}`);
+      for (const id of ids) {
+        const { isValid } = validators.validateObjectId(id);
+        if (!isValid) {
+          return res.status(400).json({ success: false, message: `Invalid ID format in ${field}` });
         }
       }
+      next();
+    };
+  },
 
-      if (rule.type === 'array') {
-        if (!Array.isArray(value)) errors.push(`${rule.label || field} must be an array`);
-        else {
-          if (rule.minLength && value.length < rule.minLength) errors.push(`${rule.label || field} must have at least ${rule.minLength} items`);
-          if (rule.maxLength && value.length > rule.maxLength) errors.push(`${rule.label || field} cannot have more than ${rule.maxLength} items`);
-        }
-      }
-
-      if (rule.enum && !rule.enum.includes(value)) errors.push(`${rule.label || field} must be one of: ${rule.enum.join(', ')}`);
-
-      if (rule.validator && typeof rule.validator === 'function') {
-        const customResult = rule.validator(value);
-        if (customResult !== true) errors.push(customResult || `${rule.label || field} is invalid`);
-      }
+  validateGroupCreation(req, res, next) {
+    const { name, participants } = req.body;
+    const errors = [];
+    if (!name || name.trim().length === 0) errors.push('Group name is required');
+    if (!Array.isArray(participants) || participants.length < 2) errors.push('At least two participants are required');
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, message: 'Validation error', errors });
     }
-    return { isValid: errors.length === 0, errors };
+    next();
+  },
+
+  validateMessage(req, res, next) {
+    const { content, receiver } = req.body;
+    const errors = [];
+
+    if (!content || content.trim().length === 0) errors.push('Message content is required');
+    else if (content.length > 1000) errors.push('Message cannot exceed 1000 characters');
+    if (!receiver) errors.push('Message receiver is required');
+
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, message: 'Validation error', errors });
+    }
+    next();
+  },
+
+  validatePagination(req, res, next) {
+    const { page = 1, limit = 10 } = req.query;
+    const errors = [];
+
+    if (isNaN(parseInt(page)) || parseInt(page) < 1) errors.push('Page must be a positive integer');
+    if (isNaN(parseInt(limit)) || parseInt(limit) < 1 || parseInt(limit) > 100) errors.push('Limit must be between 1 and 100');
+
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, message: 'Validation error', errors });
+    }
+    next();
   }
 };
 

@@ -25,16 +25,17 @@ const conversationSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
-  }
+  },
+  deletedFor: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: constants.COLLECTIONS.USERS
+  }]
 }, {
   timestamps: true
 });
 
-// Indexes to speed up user lookups and sorting
 conversationSchema.index({ participants: 1 });
 conversationSchema.index({ lastMessageTime: -1 });
-
-// Unique constraint for direct conversations only
 conversationSchema.index(
   { participants: 1, type: 1 },
   { unique: true, partialFilterExpression: { type: 'direct' } }

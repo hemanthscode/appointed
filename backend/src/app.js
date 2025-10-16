@@ -15,6 +15,7 @@ const messageRoutes = require('./routes/messageRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const metadataRoutes = require('./routes/metadataRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
@@ -51,6 +52,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/metadata', metadataRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

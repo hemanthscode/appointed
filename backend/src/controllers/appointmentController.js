@@ -77,17 +77,16 @@ exports.getAppointment = async (req, res, next) => {
  */
 exports.createAppointment = async (req, res, next) => {
   try {
-    // Validate input
-    const { teacher, date, time, purpose, message } = req.body;
+    const { teacher, date, time, purpose, message, subject } = req.body;
 
-    // Use validators outside for brevity here
-    const validation = require('../middleware/validation');
-    validation.validateAppointment(req.body);
-    const { isValid, errors } = validation.validateAppointment(req.body);
+    const { isValid, errors } = require('../utils/validators').validateAppointment(req.body);
     if (!isValid) {
-      return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse(errors.join('. ')));
+      return res
+        .status(constants.HTTP_STATUS.BAD_REQUEST)
+        .json(helpers.errorResponse(constants.MESSAGES.ERROR.VALIDATION_ERROR, errors));
     }
 
+    // Create and save new appointment
     const appointment = new Appointment({
       student: req.user._id,
       teacher,
@@ -95,11 +94,15 @@ exports.createAppointment = async (req, res, next) => {
       time,
       purpose,
       message,
+      subject,
       status: constants.APPOINTMENT_STATUS.PENDING
     });
+
     await appointment.save();
 
-    res.status(constants.HTTP_STATUS.CREATED).json(helpers.successResponse(appointment, 'Appointment created'));
+    return res
+      .status(constants.HTTP_STATUS.CREATED)
+      .json(helpers.successResponse(appointment, constants.MESSAGES.SUCCESS.APPOINTMENT_CREATED));
   } catch (err) {
     next(err);
   }
@@ -130,6 +133,8 @@ exports.updateAppointment = async (req, res, next) => {
       return res.status(constants.HTTP_STATUS.BAD_REQUEST).json(helpers.errorResponse('Invalid status'));
     }
 
+    // Additional status transition validation can be added here if needed
+
     Object.assign(appointment, updates);
     await appointment.save();
 
@@ -150,6 +155,10 @@ exports.approveAppointment = async (req, res, next) => {
 
     if (req.user.role !== constants.USER_ROLES.TEACHER) {
       return res.status(constants.HTTP_STATUS.FORBIDDEN).json(helpers.errorResponse('Only teachers can approve'));
+    }
+
+    if ([constants.APPOINTMENT_STATUS.CANCELLED, constants.APPOINTMENT_STATUS.REJECTED, constants.APPOINTMENT_STATUS.COMPLETED].includes(appointment.status)) {
+      return res.status(constants.HTTP_STATUS.CONFLICT).json(helpers.errorResponse(`Cannot approve an appointment that is ${appointment.status}`));
     }
 
     appointment.status = constants.APPOINTMENT_STATUS.CONFIRMED;
@@ -174,6 +183,10 @@ exports.rejectAppointment = async (req, res, next) => {
 
     if (req.user.role !== constants.USER_ROLES.TEACHER) {
       return res.status(constants.HTTP_STATUS.FORBIDDEN).json(helpers.errorResponse('Only teachers can reject'));
+    }
+
+    if ([constants.APPOINTMENT_STATUS.CANCELLED, constants.APPOINTMENT_STATUS.REJECTED, constants.APPOINTMENT_STATUS.COMPLETED].includes(appointment.status)) {
+      return res.status(constants.HTTP_STATUS.CONFLICT).json(helpers.errorResponse(`Cannot reject an appointment that is ${appointment.status}`));
     }
 
     appointment.status = constants.APPOINTMENT_STATUS.REJECTED;
@@ -204,6 +217,10 @@ exports.cancelAppointment = async (req, res, next) => {
       return res.status(constants.HTTP_STATUS.FORBIDDEN).json(helpers.errorResponse('Not authorized to cancel'));
     }
 
+    if ([constants.APPOINTMENT_STATUS.REJECTED, constants.APPOINTMENT_STATUS.COMPLETED, constants.APPOINTMENT_STATUS.CANCELLED].includes(appointment.status)) {
+      return res.status(constants.HTTP_STATUS.CONFLICT).json(helpers.errorResponse(`Cannot cancel an appointment that is ${appointment.status}`));
+    }
+
     appointment.status = constants.APPOINTMENT_STATUS.CANCELLED;
     appointment.cancelledAt = new Date();
     await appointment.save();
@@ -225,6 +242,14 @@ exports.completeAppointment = async (req, res, next) => {
 
     if (req.user.role !== constants.USER_ROLES.TEACHER) {
       return res.status(constants.HTTP_STATUS.FORBIDDEN).json(helpers.errorResponse('Only teachers can mark completed'));
+    }
+
+    if ([constants.APPOINTMENT_STATUS.CANCELLED, constants.APPOINTMENT_STATUS.REJECTED].includes(appointment.status)) {
+      return res.status(constants.HTTP_STATUS.CONFLICT).json(helpers.errorResponse(`Cannot complete an appointment that is ${appointment.status}`));
+    }
+
+    if (appointment.status !== constants.APPOINTMENT_STATUS.CONFIRMED) {
+      return res.status(constants.HTTP_STATUS.CONFLICT).json(helpers.errorResponse('Only confirmed appointments can be marked as completed'));
     }
 
     appointment.status = constants.APPOINTMENT_STATUS.COMPLETED;
