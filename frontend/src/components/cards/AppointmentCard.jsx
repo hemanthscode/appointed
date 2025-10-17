@@ -1,48 +1,41 @@
 import React from 'react';
-import { Button, Badge, Card } from '../ui';
-import { formatDateTime, getStatusColor } from '../../utils/helpers';
-import { APPOINTMENT_STATUS } from '../../utils/constants';
+import PropTypes from 'prop-types';
+import Badge from '../ui/Badge';
+import { formatDate, formatTime } from '../../utils/formatDate';
 
-const AppointmentCard = ({ appointment, userRole, onApprove, onReject, onCancel, onComplete, onRate }) => {
-  const { teacher, student, date, time, purpose, status, rating } = appointment;
-  const dateTimeLabel = formatDateTime(date, time);
-  const statusColorClass = getStatusColor(status);
+const STATUS_COLORS = {
+  pending: 'bg-gray-700 text-white',
+  confirmed: 'bg-black text-white',
+  completed: 'bg-gray-900 text-white',
+  cancelled: 'bg-red-700 text-white',
+  rejected: 'bg-red-700 text-white',
+};
 
-  const canApprove = userRole === 'teacher' && status === APPOINTMENT_STATUS.PENDING;
-  const canReject = canApprove;
-  const canCancel = userRole === 'student' && [APPOINTMENT_STATUS.PENDING, APPOINTMENT_STATUS.CONFIRMED].includes(status);
-  const canComplete = userRole === 'teacher' && status === APPOINTMENT_STATUS.CONFIRMED;
-  const canRate = userRole === 'student' && status === APPOINTMENT_STATUS.COMPLETED && !rating;
+const AppointmentCard = ({ appointment }) => {
+  const statusClass = STATUS_COLORS[appointment.status] || 'bg-black text-white';
 
   return (
-    <Card hoverable className="p-6 flex flex-col md:flex-row justify-between gap-4">
-      <div className="flex-grow space-y-1">
-        <h3 className="text-xl font-semibold">{purpose}</h3>
-        <p>
-          <span className="font-semibold">Date & Time: </span>{dateTimeLabel}
-        </p>
-        <p>
-          <span className="font-semibold">Teacher: </span>{teacher.name}
-        </p>
-        {userRole === 'teacher' && (
-          <p>
-            <span className="font-semibold">Student: </span>{student.name}
-          </p>
-        )}
-      </div>
-      <div className={`uppercase font-bold ${statusColorClass} px-3 py-1 rounded self-start`}>
-        {status}
-      </div>
-      <div className="flex items-center space-x-2">
-        {canApprove && <Button variant="success" size="small" onClick={() => onApprove(appointment._id)}>Approve</Button>}
-        {canReject && <Button variant="danger" size="small" onClick={() => onReject(appointment._id)}>Reject</Button>}
-        {canCancel && <Button variant="warning" size="small" onClick={() => onCancel(appointment._id)}>Cancel</Button>}
-        {canComplete && <Button variant="info" size="small" onClick={() => onComplete(appointment._id)}>Complete</Button>}
-        {canRate && <Button variant="primary" size="small" onClick={() => onRate(appointment._id)}>Rate</Button>}
-        {rating && <Badge variant="success">Rated: {rating}★</Badge>}
-      </div>
-    </Card>
+    <article className="border border-black p-4 rounded-lg mb-3 bg-white" role="region" aria-label={`Appointment: ${appointment.subject}`}>
+      <header className="flex justify-between items-center mb-2">
+        <h4 className="font-semibold text-black text-lg leading-tight">{appointment.subject}</h4>
+        <Badge className={statusClass}>{appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}</Badge>
+      </header>
+      <p className="text-black text-sm">{appointment.purpose}</p>
+      <time dateTime={appointment.date} className="text-black text-sm mt-1 block" aria-label={`Appointment date and time: ${appointment.date} ${appointment.time}`}>
+        {formatDate(appointment.date)} at {formatTime(appointment.time)}
+      </time>
+    </article>
   );
 };
 
-export default AppointmentCard;
+AppointmentCard.propTypes = {
+  appointment: PropTypes.shape({
+    subject: PropTypes.string.isRequired,
+    status: PropTypes.string.isRequired,
+    purpose: PropTypes.string.isRequired,
+    date: PropTypes.string.isRequired,
+    time: PropTypes.string.isRequired,
+  }).isRequired,
+};
+
+export default React.memo(AppointmentCard);

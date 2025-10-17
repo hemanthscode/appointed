@@ -1,52 +1,61 @@
 import React, { useState } from 'react';
-import { Button, Textarea } from '../ui';
-import { validateMessage } from '../../utils/validators';
+import PropTypes from 'prop-types';
+import Input from '../common/Input';
+import Button from '../common/Button';
 
-const MessageForm = ({ onSubmit, loading }) => {
-  const [content, setContent] = useState('');
-  const [files, setFiles] = useState([]);
-  const [error, setError] = useState(null);
+const MessageForm = ({ onSend, loading, serverError }) => {
+  const [form, setForm] = useState({ content: '', receiver: '' });
+  const [errors, setErrors] = useState({});
 
-  const handleContentChange = (e) => {
-    setContent(e.target.value);
-    if (error) setError(null);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleFileChange = (e) => {
-    setFiles(Array.from(e.target.files));
+  const validate = () => {
+    const errs = {};
+    if (!form.content.trim()) errs.content = 'Message content is required';
+    if (!form.receiver) errs.receiver = 'Receiver is required';
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const { isValid, errors } = validateMessage({ content });
-    if (!isValid) {
-      setError(errors.content);
-      return;
-    }
-    setError(null);
-    onSubmit({ content, files });
-    setContent('');
-    setFiles([]);
+    if (!validate()) return;
+    onSend(form);
+    setForm((prev) => ({ ...prev, content: '' }));
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4" encType="multipart/form-data" noValidate>
-      <Textarea
-        label="Message"
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col space-y-3">
+      <Input id="receiver" name="receiver" label="Receiver ID" value={form.receiver} onChange={handleChange} error={errors.receiver} />
+      <Input
+        id="content"
         name="content"
-        value={content}
-        onChange={handleContentChange}
-        error={error}
-        disabled={loading}
-        rows={3}
-        required
+        label="Message"
+        value={form.content}
+        onChange={handleChange}
+        error={errors.content}
+        placeholder="Type your message here"
       />
-      <input type="file" multiple onChange={handleFileChange} disabled={loading} />
-      <Button type="submit" disabled={loading} loading={loading} fullWidth>
-        Send
+      {serverError && <div className="text-red-600">{serverError}</div>}
+      <Button type="submit" disabled={loading} className="self-start">
+        {loading ? 'Sending...' : 'Send Message'}
       </Button>
     </form>
   );
+};
+
+MessageForm.propTypes = {
+  onSend: PropTypes.func.isRequired,
+  loading: PropTypes.bool,
+  serverError: PropTypes.string,
+};
+
+MessageForm.defaultProps = {
+  loading: false,
+  serverError: '',
 };
 
 export default MessageForm;

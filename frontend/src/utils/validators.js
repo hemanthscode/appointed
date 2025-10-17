@@ -1,3 +1,5 @@
+import validator from 'validator';
+
 export const validateEmail = (email) => {
   if (typeof email !== 'string') return false;
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -101,3 +103,7 @@ export const validateMessage = ({ content }) => {
   const isValid = Object.keys(errors).length === 0;
   return { isValid, errors };
 };
+
+export const validateRequired = (value) => value && value.trim() !== '';
+
+// Add further validation rules aligned with backend validations as needed

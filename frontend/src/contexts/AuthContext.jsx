@@ -1,129 +1,133 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import authService from '../services/authService';
-import userService from '../services/userService';
-import { safeParseJSON } from '../utils/helpers';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
+import * as authService from '../api/authService';
+import { toast } from 'react-toastify';  // <-- import toast from toast library
+import apiClient from '../api/apiClient';
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const storedUser = localStorage.getItem('user');
-    return storedUser ? safeParseJSON(storedUser) : null;
-  });
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
   const [loading, setLoading] = useState(true);
-  const [authLoading, setAuthLoading] = useState(false);
 
-  const loadUserFromStorage = useCallback(async () => {
-    setLoading(true);
-    const savedRefreshToken = localStorage.getItem('refreshToken');
-    if (savedRefreshToken) {
-      try {
-        const refreshed = await authService.refreshToken(savedRefreshToken);
-        localStorage.setItem('token', refreshed.token);
-        localStorage.setItem('refreshToken', refreshed.refreshToken);
-
-        const userObj = await userService.getProfile();
-        if (!userObj || !userObj._id) throw new Error('Invalid user data received');
-
-        setUser(userObj);
-        localStorage.setItem('user', JSON.stringify(userObj));
-      } catch (error) {
-        console.error('Failed to load user from storage:', error);
-        logout();
-      }
-    }
-    setLoading(false);
+  const handleLogout = useCallback(() => {
+    setToken(null);
+    setRefreshToken(null);
+    setUser(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    delete apiClient.defaults.headers.common.Authorization;
+    authService.logout().catch(() => {});
   }, []);
 
+  const loadUser = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const { data } = await authService.getMe();
+      setUser(data.data || data.user);
+    } catch (err) {
+      console.error('Failed to load user:', err);
+      toast.error('Session expired. Please login again.');
+      handleLogout();
+    } finally {
+      setLoading(false);
+    }
+  }, [token, handleLogout]);
+
   useEffect(() => {
-    loadUserFromStorage();
-  }, [loadUserFromStorage]);
+    loadUser();
+  }, [loadUser]);
 
   const login = async (credentials) => {
-    setAuthLoading(true);
     try {
-      const response = await authService.login(credentials);
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      const userObj = response.user;
-      if (!userObj || !userObj._id) throw new Error('Invalid user data in login response');
-      setUser(userObj);
-      localStorage.setItem('user', JSON.stringify(userObj));
-      setAuthLoading(false);
-      return userObj;
-    } catch (error) {
-      setAuthLoading(false);
-      throw error;
-    }
-  };
+      const { data } = await authService.login(credentials);
+      const responseData = data.data || data;
+      const { token: accessToken, refreshToken: newRefreshToken, user: userData } = responseData;
 
-  const register = async (data) => {
-    setAuthLoading(true);
-    try {
-      const response = await authService.register(data);
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      const userObj = response.user;
-      if (!userObj || !userObj._id) throw new Error('Invalid user data in register response');
-      setUser(userObj);
-      localStorage.setItem('user', JSON.stringify(userObj));
-      setAuthLoading(false);
-      return userObj;
-    } catch (error) {
-      setAuthLoading(false);
-      throw error;
-    }
-  };
-
-  const logout = async () => {
-    setAuthLoading(true);
-    try {
-      await authService.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      setUser(null);
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      setAuthLoading(false);
-    }
-  };
-
-  // Token refresh every 14 minutes
-  useEffect(() => {
-    if (!user) return;
-    const interval = setInterval(async () => {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) return;
-      try {
-        const refreshed = await authService.refreshToken(refreshToken);
-        localStorage.setItem('token', refreshed.token);
-        localStorage.setItem('refreshToken', refreshed.refreshToken);
-        const userObj = await userService.getProfile();
-        if (!userObj || !userObj._id) throw new Error('Invalid user data received');
-        setUser(userObj);
-        localStorage.setItem('user', JSON.stringify(userObj));
-      } catch (error) {
-        console.error('Token refresh error:', error);
-        if (error.message && error.message.includes('401')) logout();
+      if (userData.status === 'pending') {
+        toast.error('Your account is pending approval. Please wait for admin verification.');
+        return { success: false, status: 'pending' };
       }
-    }, 14 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [user]);
 
-  const updateUserProfile = (updatedUser) => {
-    setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
+      if (userData.status === 'inactive') {
+        toast.error('Your account has been deactivated. Please contact support.');
+        return { success: false, status: 'inactive' };
+      }
+
+      localStorage.setItem('token', accessToken);
+      localStorage.setItem('refreshToken', newRefreshToken);
+
+      apiClient.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+
+      setToken(accessToken);
+      setRefreshToken(newRefreshToken);
+      setUser(userData);
+
+      toast.success('Login successful!');
+      return { success: true, status: userData.status };
+    } catch (error) {
+      console.error('Login error:', error);
+      const errorMsg = error.response?.data?.message || 'Login failed. Please try again.';
+      toast.error(errorMsg);
+      throw error;
+    }
   };
 
-  return (
-    <AuthContext.Provider
-      value={{ user, loading, authLoading, login, register, logout, updateUserProfile }}
-    >
-      {!loading && children}
-    </AuthContext.Provider>
-  );
+  const register = async (userData) => {
+    try {
+      const { data } = await authService.register(userData);
+      const responseData = data.data || data;
+      const { user: newUser } = responseData;
+
+      // No token stored since waiting for admin approval
+      toast.success('Registration successful! Please wait for admin approval.');
+
+      return {
+        success: true,
+        user: newUser,
+        status: newUser.status,
+        requiresApproval: newUser.status === 'pending'
+      };
+    } catch (error) {
+      console.error('Registration error:', error);
+      const errorMsg = error.response?.data?.message || 'Registration failed. Please try again.';
+      toast.error(errorMsg);
+      throw error;
+    }
+  };
+
+  const value = {
+    user,
+    token,
+    loading,
+    login,
+    logout: handleLogout,
+    register,
+    refreshToken,
+    setToken,
+    setRefreshToken,
+    setUser,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  return context;
+};
+
+// Helpers for non-hook files
+export const getToken = () => localStorage.getItem('token');
+export const logout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  delete apiClient.defaults.headers.common.Authorization;
+};
+
+export default AuthContext;

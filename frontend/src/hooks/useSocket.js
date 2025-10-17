@@ -1,63 +1,22 @@
-// hooks/useNotifications.js
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { notificationsService } from '../services/notifications';
+import { useContext, useEffect } from 'react';
+import { useAuth } from './useAuth';
+import { useSocket } from '../contexts/SocketContext';
 
-const NotificationContext = createContext();
-
-export const useNotifications = () => {
-  const context = useContext(NotificationContext);
-  if (!context) throw new Error('useNotifications must be used within NotificationProvider');
-  return context;
-};
-
-export const NotificationProvider = ({ children }) => {
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  const fetchNotifications = async () => {
-    const res = await notificationsService.getAll();
-    setNotifications(res?.data || []);
-    const countRes = await notificationsService.getUnreadCount();
-    setUnreadCount(countRes?.data || 0);
-  };
+export const useSocketEvents = (events) => {
+  const { on, off } = useSocket();
+  const { user } = useAuth();
 
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    if (!user) return;
 
-  const markAsRead = async (id) => {
-    await notificationsService.markAsRead(id);
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    );
-    setUnreadCount((count) => (count > 0 ? count - 1 : 0));
-  };
+    Object.entries(events).forEach(([event, handler]) => {
+      on(event, handler);
+    });
 
-  const markAllAsRead = async () => {
-    await notificationsService.markAllAsRead();
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    setUnreadCount(0);
-  };
-
-  const deleteNotification = async (id) => {
-    await notificationsService.deleteNotification(id);
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
-
-  return (
-    <NotificationContext.Provider
-      value={{
-        notifications,
-        unreadCount,
-        fetchNotifications,
-        markAsRead,
-        markAllAsRead,
-        deleteNotification,
-      }}
-    >
-      {children}
-    </NotificationContext.Provider>
-  );
+    return () => {
+      Object.entries(events).forEach(([event, handler]) => {
+        off(event, handler);
+      });
+    };
+  }, [on, off, events, user]);
 };
-
-export default NotificationContext;

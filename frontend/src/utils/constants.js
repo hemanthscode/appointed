@@ -60,3 +60,64 @@ export const SLOT_STATUS_OPTIONS = Object.freeze([
   { value: 'blocked', label: 'Blocked' },
   { value: 'unavailable', label: 'Unavailable' }
 ]);
+export const USER_ROLES = {
+  STUDENT: 'student',
+  TEACHER: 'teacher',
+  ADMIN: 'admin',
+};
+
+export const USER_STATUS = {
+  PENDING: 'pending',
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+  SUSPENDED: 'suspended',
+};
+
+export const MESSAGE_TYPES = {
+  TEXT: 'text',
+  IMAGE: 'image',
+  FILE: 'file',
+};
+
+export const SOCKET_EVENTS = {
+  NEW_NOTIFICATION: 'new_notification',
+  NEW_MESSAGE: 'new_message',
+  // Add more as needed
+};
+
+export const APPOINTMENT_PURPOSES = [
+  { value: 'academic-help', label: 'Academic Help' },
+  { value: 'project-discussion', label: 'Project Discussion' },
+  { value: 'career-guidance', label: 'Career Guidance' },
+  { value: 'exam-preparation', label: 'Exam Preparation' },
+  { value: 'research-guidance', label: 'Research Guidance' },
+  { value: 'other', label: 'Other' },
+];
+
+// Add other enums and constants here as shared by backend
+export const DEPARTMENT_OPTIONS = [
+  { value: 'Computer Science', label: 'Computer Science' },
+  { value: 'Information Technology', label: 'Information Technology' },
+  { value: 'Electronics Engineering', label: 'Electronics Engineering' },
+  { value: 'Mechanical Engineering', label: 'Mechanical Engineering' },
+  { value: 'Civil Engineering', label: 'Civil Engineering' },
+  { value: 'Mathematics', label: 'Mathematics' },
+  { value: 'Physics', label: 'Physics' },
+  { value: 'Chemistry', label: 'Chemistry' },
+  { value: 'Business Administration', label: 'Business Administration' },
+  { value: 'English Literature', label: 'English Literature' },
+];
+
+// For dropdowns used in RegisterForm
+export const ROLE_OPTIONS = [
+  { value: USER_ROLES.STUDENT, label: 'Student' },
+  { value: USER_ROLES.TEACHER, label: 'Teacher' },
+];
+
+
+export const SUBJECT_OPTIONS = [
+  { label: 'Mathematics', value: 'Mathematics' },
+  { label: 'Physics', value: 'Physics' },
+  { label: 'Chemistry', value: 'Chemistry' },
+  { label: 'Programming', value: 'Programming' },
+];

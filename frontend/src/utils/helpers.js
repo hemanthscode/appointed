@@ -162,3 +162,9 @@ export const formatNumber = (num, options = {}) =>
   typeof num !== 'number' ? '0' : new Intl.NumberFormat('en-US', options).format(num);
 
 export const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+export const isEmptyObject = (obj) => Object.keys(obj).length === 0;
+
+export const truncateString = (str, max = 100) =>
+  str.length > max ? `${str.substring(0, max)}...` : str;
+
+// Add other reusable helpers as needed

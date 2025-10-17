@@ -1,48 +1,42 @@
 import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { 
-  CalendarDays, 
-  Users, 
-  MessageSquare, 
-  Shield, 
-  Clock, 
+import {
+  CalendarDays,
+  Users,
+  MessageSquare,
+  Shield,
+  Clock,
   CheckCircle,
   ArrowRight,
   BookOpen,
   GraduationCap,
-  UserCheck
+  UserCheck,
 } from 'lucide-react';
-import { Button } from '../components/ui';
+import Button from '../components/common/Button';
 import { ANIMATIONS, ROUTES, LANDING_PAGE_CONTENT } from '../data';
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  
-  // Refs for smooth scrolling
+
+  // Refs to sections for smooth scroll
   const heroRef = useRef(null);
   const featuresRef = useRef(null);
   const howItWorksRef = useRef(null);
   const benefitsRef = useRef(null);
 
-  // Smooth scroll functions
-  const scrollToSection = (elementRef) => {
-    elementRef.current?.scrollIntoView({ 
-      behavior: 'smooth',
-      block: 'start'
-    });
+  // Scroll helper
+  const scrollToSection = (elRef) => {
+    elRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const navigateToRegister = () => {
-    navigate(ROUTES.REGISTER);
-  };
+  // Navigation handlers
+  const navigateToLogin = () => navigate(ROUTES.LOGIN);
+  const navigateToRegister = () => navigate(ROUTES.REGISTER);
 
   const iconMap = {
     CalendarDays,
@@ -50,18 +44,18 @@ const LandingPage = () => {
     UserCheck,
     Shield,
     Clock,
-    GraduationCap
+    GraduationCap,
   };
 
-  const features = LANDING_PAGE_CONTENT.features.map(feature => ({
+  const features = LANDING_PAGE_CONTENT.features.map((feature) => ({
     ...feature,
-    icon: iconMap[feature.icon]
+    icon: iconMap[feature.icon],
   }));
 
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden">
-      {/* Navigation */}
-      <motion.nav 
+      {/* Navigation Bar */}
+      <motion.nav
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
@@ -69,8 +63,8 @@ const LandingPage = () => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <motion.div 
-              className="flex items-center space-x-2 cursor-pointer"
+            <motion.div
+              className="flex items-center space-x-2 cursor-pointer select-none"
               onClick={scrollToTop}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -78,114 +72,106 @@ const LandingPage = () => {
               <BookOpen className="h-8 w-8" />
               <span className="text-xl font-bold">Appointed</span>
             </motion.div>
-            
+
             <div className="hidden md:flex space-x-8">
-              <button 
+              <button
                 onClick={() => scrollToSection(featuresRef)}
                 className="hover:text-gray-300 transition-colors cursor-pointer"
               >
                 Features
               </button>
-              <button 
+              <button
                 onClick={() => scrollToSection(howItWorksRef)}
                 className="hover:text-gray-300 transition-colors cursor-pointer"
               >
                 How it Works
               </button>
-              <button 
+              <button
                 onClick={() => scrollToSection(benefitsRef)}
                 className="hover:text-gray-300 transition-colors cursor-pointer"
               >
                 Benefits
               </button>
             </div>
-            
-            <Button
-              onClick={navigateToRegister}
-              size="small"
-            >
-              Get Started
-            </Button>
+
+            <div className="flex space-x-4">
+              <Button onClick={navigateToLogin} size="small" className="whitespace-nowrap">
+                Login
+              </Button>
+              <Button
+                onClick={navigateToRegister}
+                variant="secondary"
+                size="small"
+                className="whitespace-nowrap"
+              >
+                Register
+              </Button>
+            </div>
           </div>
         </div>
       </motion.nav>
 
       {/* Hero Section */}
-      <section ref={heroRef} className="min-h-screen flex items-center justify-center relative overflow-hidden pt-16">
+      <section
+        ref={heroRef}
+        className="min-h-screen flex items-center justify-center relative overflow-hidden pt-16"
+      >
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900/20 to-black/20"></div>
-        
-        <motion.div 
+
+        <motion.div
           initial="initial"
           animate="animate"
           variants={ANIMATIONS.staggerChildren}
           className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8 relative z-10"
         >
-          <motion.h1 
+          <motion.h1
             variants={ANIMATIONS.fadeInUp}
-            className="text-4xl sm:text-6xl lg:text-7xl font-bold leading-tight mb-6"
+            className="text-4xl sm:text-6xl lg:text-7xl font-bold leading-tight mb-6 select-none"
           >
             {LANDING_PAGE_CONTENT.hero.title.split(' ').slice(0, 2).join(' ')}
             <span className="block bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
               {LANDING_PAGE_CONTENT.hero.title.split(' ').slice(2).join(' ')}
             </span>
           </motion.h1>
-          
-          <motion.p 
+
+          <motion.p
             variants={ANIMATIONS.fadeInUp}
             className="text-xl sm:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed"
           >
             {LANDING_PAGE_CONTENT.hero.subtitle}
           </motion.p>
-          
-          <motion.div 
+
+          <motion.div
             variants={ANIMATIONS.fadeInUp}
             className="flex flex-col sm:flex-row gap-4 justify-center items-center"
           >
-            <Button
-              onClick={navigateToRegister}
-              size="large"
-              icon={<ArrowRight className="h-5 w-5" />}
-            >
+            <Button onClick={navigateToRegister} size="large" icon={<ArrowRight className="h-5 w-5" />}>
               {LANDING_PAGE_CONTENT.hero.cta.primary}
             </Button>
-            
+
             <Button
               variant="secondary"
               size="large"
               onClick={() => scrollToSection(howItWorksRef)}
+              className="whitespace-nowrap"
             >
               {LANDING_PAGE_CONTENT.hero.cta.secondary}
             </Button>
           </motion.div>
         </motion.div>
 
-        {/* Floating Elements */}
-        <motion.div 
-          animate={{ 
-            y: [-20, 20, -20],
-            rotate: [0, 5, 0]
-          }}
-          transition={{ 
-            duration: 6, 
-            repeat: Infinity, 
-            ease: "easeInOut" 
-          }}
-          className="absolute top-1/4 left-10 opacity-20"
+        {/* Floating icons */}
+        <motion.div
+          animate={{ y: [-20, 20, -20], rotate: [0, 5, 0] }}
+          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute top-1/4 left-10 opacity-20 pointer-events-none"
         >
           <CalendarDays className="h-16 w-16" />
         </motion.div>
-        
-        <motion.div 
-          animate={{ 
-            y: [20, -20, 20],
-            rotate: [0, -5, 0]
-          }}
-          transition={{ 
-            duration: 8, 
-            repeat: Infinity, 
-            ease: "easeInOut" 
-          }}
-          className="absolute bottom-1/3 right-10 opacity-20"
+        <motion.div
+          animate={{ y: [20, -20, 20], rotate: [0, -5, 0] }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute bottom-1/3 right-10 opacity-20 pointer-events-none"
         >
           <Users className="h-20 w-20" />
         </motion.div>
@@ -194,20 +180,18 @@ const LandingPage = () => {
       {/* Features Section */}
       <section ref={featuresRef} className="min-h-screen py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
+          <motion.div
             initial="initial"
             whileInView="animate"
             viewport={{ once: true }}
             variants={ANIMATIONS.staggerChildren}
-            className="text-center mb-16"
+            className="text-center mb-16 select-none"
           >
-            <motion.h2 
-              variants={ANIMATIONS.fadeInUp}
-              className="text-4xl sm:text-5xl font-bold mb-6"
-            >
+            <motion.h2 variants={ANIMATIONS.fadeInUp} className="text-4xl sm:text-5xl font-bold mb-6">
               Powerful Features
             </motion.h2>
-            <motion.p 
+
+            <motion.p
               variants={ANIMATIONS.fadeInUp}
               className="text-xl text-gray-400 max-w-3xl mx-auto"
             >
@@ -215,7 +199,7 @@ const LandingPage = () => {
             </motion.p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial="initial"
             whileInView="animate"
             viewport={{ once: true }}
@@ -232,9 +216,7 @@ const LandingPage = () => {
                 <div>
                   <feature.icon className="h-12 w-12 mb-6 text-white" />
                   <h3 className="text-2xl font-bold mb-4">{feature.title}</h3>
-                  <p className="text-gray-400 leading-relaxed flex-grow">
-                    {feature.description}
-                  </p>
+                  <p className="text-gray-400 leading-relaxed flex-grow">{feature.description}</p>
                 </div>
               </motion.div>
             ))}
@@ -245,20 +227,18 @@ const LandingPage = () => {
       {/* How It Works Section */}
       <section ref={howItWorksRef} className="min-h-screen py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
+          <motion.div
             initial="initial"
             whileInView="animate"
             viewport={{ once: true }}
             variants={ANIMATIONS.staggerChildren}
-            className="text-center mb-16"
+            className="text-center mb-16 select-none"
           >
-            <motion.h2 
-              variants={ANIMATIONS.fadeInUp}
-              className="text-4xl sm:text-5xl font-bold mb-6"
-            >
+            <motion.h2 variants={ANIMATIONS.fadeInUp} className="text-4xl sm:text-5xl font-bold mb-6">
               How It Works
             </motion.h2>
-            <motion.p 
+
+            <motion.p
               variants={ANIMATIONS.fadeInUp}
               className="text-xl text-gray-400 max-w-3xl mx-auto"
             >
@@ -266,7 +246,7 @@ const LandingPage = () => {
             </motion.p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial="initial"
             whileInView="animate"
             viewport={{ once: true }}
@@ -281,17 +261,15 @@ const LandingPage = () => {
                 className="text-center bg-gray-900/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-800 h-80 flex flex-col justify-between"
               >
                 <div>
-                  <motion.div 
+                  <motion.div
                     whileHover={{ rotate: 360 }}
                     transition={{ duration: 0.6 }}
-                    className="bg-white text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mb-6 mx-auto"
+                    className="bg-white text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mb-6 mx-auto select-none"
                   >
                     {step.step}
                   </motion.div>
                   <h3 className="text-2xl font-bold mb-4">{step.title}</h3>
-                  <p className="text-gray-400 leading-relaxed">
-                    {step.description}
-                  </p>
+                  <p className="text-gray-400 leading-relaxed">{step.description}</p>
                 </div>
               </motion.div>
             ))}
@@ -302,20 +280,18 @@ const LandingPage = () => {
       {/* Benefits Section */}
       <section ref={benefitsRef} className="min-h-screen py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
+          <motion.div
             initial="initial"
             whileInView="animate"
             viewport={{ once: true }}
             variants={ANIMATIONS.staggerChildren}
-            className="text-center mb-16"
+            className="text-center mb-16 select-none"
           >
-            <motion.h2 
-              variants={ANIMATIONS.fadeInUp}
-              className="text-4xl sm:text-5xl font-bold mb-6"
-            >
+            <motion.h2 variants={ANIMATIONS.fadeInUp} className="text-4xl sm:text-5xl font-bold mb-6">
               Why Choose Appointed?
             </motion.h2>
-            <motion.p 
+
+            <motion.p
               variants={ANIMATIONS.fadeInUp}
               className="text-xl text-gray-400 max-w-3xl mx-auto"
             >
@@ -323,7 +299,7 @@ const LandingPage = () => {
             </motion.p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial="initial"
             whileInView="animate"
             viewport={{ once: true }}
@@ -339,9 +315,7 @@ const LandingPage = () => {
               >
                 <div>
                   <h3 className="text-2xl font-bold mb-4">{benefit.title}</h3>
-                  <p className="text-gray-400 mb-6 leading-relaxed">
-                    {benefit.description}
-                  </p>
+                  <p className="text-gray-400 mb-6 leading-relaxed">{benefit.description}</p>
                   <ul className="space-y-2">
                     {benefit.benefits.map((item, idx) => (
                       <li key={idx} className="flex items-center space-x-2">
@@ -366,22 +340,19 @@ const LandingPage = () => {
             viewport={{ once: true }}
             variants={ANIMATIONS.staggerChildren}
           >
-            <motion.h2 
-              variants={ANIMATIONS.fadeInUp}
-              className="text-4xl sm:text-6xl font-bold mb-8"
-            >
+            <motion.h2 variants={ANIMATIONS.fadeInUp} className="text-4xl sm:text-6xl font-bold mb-8 select-none">
               Ready to Transform
               <span className="block">Your Institution?</span>
             </motion.h2>
-            
-            <motion.p 
+
+            <motion.p
               variants={ANIMATIONS.fadeInUp}
               className="text-xl text-gray-400 mb-12 max-w-2xl mx-auto"
             >
               Join thousands of educational institutions already using Appointed to streamline their appointment processes.
             </motion.p>
-            
-            <motion.div 
+
+            <motion.div
               variants={ANIMATIONS.fadeInUp}
               className="flex flex-col sm:flex-row gap-6 justify-center items-center"
             >
@@ -389,23 +360,22 @@ const LandingPage = () => {
                 onClick={navigateToRegister}
                 size="large"
                 icon={<ArrowRight className="h-6 w-6" />}
+                className="whitespace-nowrap"
               >
-                Get Started Today
+                Register Now
               </Button>
-              
+
               <Button
                 variant="secondary"
                 size="large"
                 onClick={() => scrollToSection(howItWorksRef)}
+                className="whitespace-nowrap"
               >
                 Schedule Demo
               </Button>
             </motion.div>
-            
-            <motion.p 
-              variants={ANIMATIONS.fadeInUp}
-              className="text-gray-500 mt-8"
-            >
+
+            <motion.p variants={ANIMATIONS.fadeInUp} className="text-gray-500 mt-8 select-none">
               No credit card required • Free setup • 24/7 support
             </motion.p>
           </motion.div>
@@ -413,16 +383,16 @@ const LandingPage = () => {
       </section>
 
       {/* Footer */}
-      <motion.footer 
+      <motion.footer
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
-        className="border-t border-gray-800 py-12"
+        className="border-t border-gray-800 py-12 select-none"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
-            <motion.div 
-              className="flex items-center space-x-2 mb-4 md:mb-0 cursor-pointer"
+            <motion.div
+              className="flex items-center space-x-2 mb-4 md:mb-0 cursor-pointer select-none"
               onClick={scrollToTop}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -430,7 +400,7 @@ const LandingPage = () => {
               <BookOpen className="h-8 w-8" />
               <span className="text-xl font-bold">Appointed</span>
             </motion.div>
-            
+
             <div className="flex space-x-8 text-gray-400">
               <button className="hover:text-white transition-colors">Privacy</button>
               <button className="hover:text-white transition-colors">Terms</button>
@@ -438,8 +408,8 @@ const LandingPage = () => {
               <button className="hover:text-white transition-colors">Contact</button>
             </div>
           </div>
-          
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-500">
+
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-500 select-none">
             <p>&copy; 2025 Appointed. All rights reserved.</p>
           </div>
         </div>
