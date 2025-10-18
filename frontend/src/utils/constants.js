@@ -121,3 +121,114 @@ export const SUBJECT_OPTIONS = [
   { label: 'Chemistry', value: 'Chemistry' },
   { label: 'Programming', value: 'Programming' },
 ];
+
+// Landing Page Content
+export const LANDING_PAGE_CONTENT = {
+  hero: {
+    title: "Simplify Academic Appointments",
+    subtitle: "Connect students and teachers seamlessly with our intelligent appointment booking system. Schedule, manage, and communicate - all in one place.",
+    cta: {
+      primary: "Start Booking",
+      secondary: "Watch Demo"
+    }
+  },
+  features: [
+    {
+      title: "Smart Scheduling",
+      description: "Intelligent appointment booking with conflict detection and automatic reminders for seamless scheduling.",
+      icon: "CalendarDays"
+    },
+    {
+      title: "Instant Messaging",
+      description: "Real-time communication between students and teachers with purpose-driven appointment requests.",
+      icon: "MessageSquare"
+    },
+    {
+      title: "Approval System",
+      description: "Teachers can approve, reschedule, or cancel appointments with detailed reasoning and feedback.",
+      icon: "UserCheck"
+    },
+    {
+      title: "Admin Control",
+      description: "Comprehensive admin panel for managing users, teachers, departments, and system-wide settings.",
+      icon: "Shield"
+    },
+    {
+      title: "Time Management",
+      description: "Optimize time slots, avoid conflicts, and maximize productivity for both students and educators.",
+      icon: "Clock"
+    },
+    {
+      title: "Academic Focus",
+      description: "Purpose-built for educational institutions with subject-specific booking and department organization.",
+      icon: "GraduationCap"
+    }
+  ],
+  steps: [
+    {
+      step: "01",
+      title: "Register & Login",
+      description: "Students and teachers create accounts with department-specific access and admin approval for secure authentication."
+    },
+    {
+      step: "02",
+      title: "Search & Book",
+      description: "Students search for teachers by department, subject, or availability and send appointment requests with purpose and timing."
+    },
+    {
+      step: "03",
+      title: "Approve & Meet",
+      description: "Teachers review requests, approve or suggest alternatives, and both parties receive confirmations and reminders."
+    }
+  ],
+  benefits: [
+    {
+      title: "Reduce Wait Times",
+      description: "Eliminate long queues and uncertainty with structured appointment scheduling that respects everyone's time.",
+      benefits: ["No more waiting in lines", "Predictable schedules", "Better time management"]
+    },
+    {
+      title: "Increase Efficiency",
+      description: "Optimize resource allocation and improve the overall productivity of academic interactions and consultations.",
+      benefits: ["Higher appointment completion", "Better resource utilization", "Streamlined processes"]
+    },
+    {
+      title: "Enhance Communication",
+      description: "Foster better student-teacher relationships through structured communication and clear appointment purposes.",
+      benefits: ["Clear communication channels", "Purpose-driven meetings", "Follow-up capabilities"]
+    },
+    {
+      title: "Administrative Control",
+      description: "Empower administrators with comprehensive oversight, analytics, and management capabilities for the entire system.",
+      benefits: ["Complete system oversight", "User management tools", "Performance analytics"]
+    }
+  ]
+};
+
+// Animation variants for Framer Motion
+export const ANIMATIONS = {
+  fadeInUp: {
+    initial: { opacity: 0, y: 60 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.6 }
+  },
+  
+  staggerChildren: {
+    animate: {
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  },
+  
+  scaleOnHover: {
+    whileHover: { scale: 1.05 },
+    whileTap: { scale: 0.95 }
+  },
+  
+  slideInFromLeft: {
+    initial: { opacity: 0, x: -20 },
+    animate: { opacity: 1, x: 0 },
+    transition: { duration: 0.6 }
+  }
+};

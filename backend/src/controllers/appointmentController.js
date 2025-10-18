@@ -8,11 +8,10 @@ const constants = require('../utils/constants');
  */
 exports.getAppointments = async (req, res, next) => {
   try {
-    const { page = constants.PAGINATION.DEFAULT_PAGE, limit = constants.PAGINATION.DEFAULT_LIMIT, status, date, teacher, student } = req.query;
+    const { page = constants.PAGINATION.DEFAULT_PAGE, limit = constants.PAGINATION.DEFAULT_LIMIT, status, date, teacher, student, all } = req.query;
 
     const filter = {};
 
-    // Role-based filtering
     if (req.user.role === constants.USER_ROLES.STUDENT) {
       filter.student = req.user._id;
     } else if (req.user.role === constants.USER_ROLES.TEACHER) {
@@ -22,7 +21,6 @@ exports.getAppointments = async (req, res, next) => {
       if (teacher) filter.teacher = teacher;
     }
 
-    // Optional filters
     if (status) filter.status = status;
     if (date) {
       const start = new Date(date);
@@ -33,17 +31,24 @@ exports.getAppointments = async (req, res, next) => {
     }
 
     const total = await Appointment.countDocuments(filter);
-    const appointments = await Appointment.find(filter)
-      .populate('student teacher', 'name email role')
-      .sort({ date: -1, _id: -1 })
-      .limit(Number(limit))
-      .skip((Number(page) - 1) * Number(limit));
+
+    let query = Appointment.find(filter).populate('student teacher', 'name email role').sort({ date: -1, _id: -1 });
+
+    if (all === 'true') {
+      // Return all without limit and skip
+      const appointments = await query.exec();
+      res.status(constants.HTTP_STATUS.OK).json({ data: appointments, total, pagination: null });
+      return;
+    }
+
+    const appointments = await query.limit(Number(limit)).skip((Number(page) - 1) * Number(limit)).exec();
 
     res.status(constants.HTTP_STATUS.OK).json(helpers.paginate(appointments, total, page, limit));
   } catch (err) {
     next(err);
   }
 };
+
 
 /**
  * Get single appointment by ID with access control
@@ -77,7 +82,7 @@ exports.getAppointment = async (req, res, next) => {
  */
 exports.createAppointment = async (req, res, next) => {
   try {
-    const { teacher, date, time, purpose, message, subject } = req.body;
+    const { teacher, date, time, purpose, message } = req.body;
 
     const { isValid, errors } = require('../utils/validators').validateAppointment(req.body);
     if (!isValid) {
@@ -86,7 +91,7 @@ exports.createAppointment = async (req, res, next) => {
         .json(helpers.errorResponse(constants.MESSAGES.ERROR.VALIDATION_ERROR, errors));
     }
 
-    // Create and save new appointment
+    // Create and save new appointment without subject
     const appointment = new Appointment({
       student: req.user._id,
       teacher,
@@ -94,7 +99,6 @@ exports.createAppointment = async (req, res, next) => {
       time,
       purpose,
       message,
-      subject,
       status: constants.APPOINTMENT_STATUS.PENDING
     });
 
@@ -107,6 +111,7 @@ exports.createAppointment = async (req, res, next) => {
     next(err);
   }
 };
+
 
 /**
  * Update appointment status or details by owner or admin

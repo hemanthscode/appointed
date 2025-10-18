@@ -105,28 +105,31 @@ const validateAppointment = [
   body('teacher')
     .isMongoId()
     .withMessage('Valid teacher ID is required'),
+
   body('date')
     .isISO8601()
     .toDate()
     .custom(value => {
-      if (value < new Date().setHours(0,0,0,0)) throw new Error('Date cannot be in the past');
+      if (value < new Date().setHours(0, 0, 0, 0)) throw new Error('Date cannot be in the past');
       return true;
     }),
+
   body('time')
     .matches(/^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM)$/i)
     .withMessage('Time must be in format like 2:00 PM'),
+
   body('purpose')
     .isIn(constants.APPOINTMENT_PURPOSES.map(p => p.value))
     .withMessage('Purpose is required and must be valid'),
-  body('subject')
-    .notEmpty()
-    .withMessage('Subject is required'),
+
   body('message')
     .optional()
     .isLength({ max: 500 })
     .withMessage('Message cannot exceed 500 characters'),
+
   handleValidationErrors,
 ];
+
 
 /**
  * Appointment Update Validation

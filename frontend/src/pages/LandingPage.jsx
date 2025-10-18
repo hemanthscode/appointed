@@ -14,7 +14,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import Button from '../components/common/Button';
-import { ANIMATIONS, ROUTES, LANDING_PAGE_CONTENT } from '../data';
+import { ANIMATIONS, ROUTES, LANDING_PAGE_CONTENT } from '../utils/constants';
 
 const LandingPage = () => {
   const navigate = useNavigate();

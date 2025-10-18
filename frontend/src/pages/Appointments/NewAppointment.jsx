@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import AppointmentForm from '../../components/forms/AppointmentForm';
 import { useNavigate } from 'react-router-dom';
-import * as appointmentService from '../../api/appointmentService';
+import AppointmentForm from '../../components/forms/AppointmentForm';
 
 const NewAppointment = () => {
   const [loading, setLoading] = useState(false);
@@ -12,7 +11,8 @@ const NewAppointment = () => {
     setLoading(true);
     setServerError('');
     try {
-      await appointmentService.createAppointment(formData);
+      const mod = await import('../../api/appointmentService');
+      await mod.createAppointment(formData);
       navigate('/appointments');
     } catch (err) {
       setServerError(err.response?.data?.message || 'Failed to create appointment');
@@ -22,8 +22,8 @@ const NewAppointment = () => {
   };
 
   return (
-    <main className="max-w-md mx-auto p-4 text-black">
-      <h1 className="text-3xl font-bold mb-6">New Appointment</h1>
+    <main className="max-w-md mx-auto p-6 text-black">
+      <h1 className="text-4xl font-bold mb-8">New Appointment</h1>
       <AppointmentForm onSubmit={handleSave} loading={loading} serverError={serverError} />
     </main>
   );

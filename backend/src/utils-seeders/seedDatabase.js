@@ -97,183 +97,154 @@ const seedDepartments = async () => {
 };
 
 const seedUsers = async () => {
-  const usersData = [
-    // Admin user
-    {
-      name: 'Admin User',
-      email: 'admin@university.edu',
-      password: 'Password@123',
-      role: 'admin',
-      department: 'Administration',
-      status: 'active',
-      isVerified: true,
-      joinedDate: new Date('2023-01-01'),
-    },
-    // Teachers
-    {
-      name: 'Dr. Alice Smith',
-      email: 'alice.smith@university.edu',
-      password: 'Password@123',
-      role: 'teacher',
-      department: 'Computer Science',
-      subject: 'Data Structures',
-      bio: 'Expert in data structures with 10+ years experience',
-      office: 'CS Building Room 301',
-      phone: '+12345670001',
-      status: 'active',
-      rating: 4.8,
-      totalRatings: 150,
-      isVerified: true,
-      joinedDate: new Date('2020-09-01'),
-    },
-    {
-      name: 'Prof. Bob Johnson',
-      email: 'bob.johnson@university.edu',
-      password: 'Password@123',
-      role: 'teacher',
-      department: 'Mathematics',
-      subject: 'Calculus',
-      bio: 'Mathematics enthusiast and researcher',
-      office: 'Math Building Room 210',
-      phone: '+12345670002',
-      status: 'active',
-      rating: 4.6,
-      totalRatings: 98,
-      isVerified: true,
-      joinedDate: new Date('2021-01-15'),
-    },
-    {
-      name: 'Dr. Carol Lee',
-      email: 'carol.lee@university.edu',
+  const departments = ['Computer Science', 'Mathematics', 'Physics', 'Chemistry'];
+  const subjectsByDept = {
+    'Computer Science': ['Data Structures', 'Algorithms', 'Web Development', 'Machine Learning'],
+    Mathematics: ['Calculus', 'Linear Algebra', 'Statistics'],
+    Physics: ['Classical Mechanics', 'Quantum Physics', 'Thermodynamics'],
+    Chemistry: ['Organic Chemistry', 'Physical Chemistry'],
+  };
+  const years = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
+  const users = [];
+
+  // Admin user
+  users.push({
+    name: 'Admin User',
+    email: 'admin@university.edu',
+    password: 'Password@123',
+    role: 'admin',
+    department: 'Administration',
+    status: 'active',
+    isVerified: true,
+    joinedDate: new Date('2023-01-01'),
+    appointmentsCount: 0,
+  });
+
+  // 10 teachers systematically assigned subjects and depts
+  for (let i = 1; i <= 10; i++) {
+    const dept = departments[i % departments.length];
+    const subjectList = subjectsByDept[dept];
+    const subject = subjectList[i % subjectList.length];
+    users.push({
+      name: `Teacher ${i}`,
+      email: `teacher${i}@university.edu`,
       password: 'Password@123',
       role: 'teacher',
-      department: 'Physics',
-      subject: 'Quantum Physics',
-      bio: 'Specializes in quantum mechanics and research',
-      office: 'Physics Lab Room 102',
-      phone: '+12345670003',
+      department: dept,
+      subject,
+      bio: `Experienced in ${subject}`,
+      office: `${dept} Building Room ${100 + i}`,
+      phone: `+1234567${(10000 + i).toString().slice(-5)}`,
       status: 'active',
-      rating: 4.9,
-      totalRatings: 120,
+      rating: parseFloat((Math.random() * (5 - 4) + 4).toFixed(1)),
+      totalRatings: Math.floor(Math.random() * 150 + 50),
       isVerified: true,
-      joinedDate: new Date('2019-05-10'),
-    },
-    // Students
-    {
-      name: 'John Doe',
-      email: 'john.doe@student.edu',
+      joinedDate: new Date(2018 + (i % 5), i % 12, (i % 28) + 1),
+      appointmentsCount: 0,
+    });
+  }
+
+  // 30 students with realistic years and depts
+  for (let i = 1; i <= 30; i++) {
+    const dept = departments[i % departments.length];
+    const year = years[i % years.length];
+    users.push({
+      name: `Student ${i}`,
+      email: `student${i}@university.edu`,
       password: 'Password@123',
       role: 'student',
-      department: 'Computer Science',
-      year: '3rd Year',
-      phone: '+12345670011',
+      department: dept,
+      year,
+      phone: `+1987654${(10000 + i).toString().slice(-5)}`,
       status: 'active',
       isVerified: true,
-      joinedDate: new Date('2022-08-01'),
-    },
-    {
-      name: 'Jane Roe',
-      email: 'jane.roe@student.edu',
-      password: 'Password@123',
-      role: 'student',
-      department: 'Mathematics',
-      year: '2nd Year',
-      phone: '+12345670012',
-      status: 'active',
-      isVerified: true,
-      joinedDate: new Date('2023-01-10'),
-    },
-    {
-      name: 'Jim Beam',
-      email: 'jim.beam@student.edu',
-      password: 'Password@123',
-      role: 'student',
-      department: 'Physics',
-      year: '4th Year',
-      phone: '+12345670013',
-      status: 'active',
-      isVerified: true,
-      joinedDate: new Date('2021-09-05'),
-    },
-  ];
+      joinedDate: new Date(2021 + (i % 3), i % 12, (i % 28) + 1),
+      bio: '',
+      rating: 0,
+      totalRatings: 0,
+      appointmentsCount: 0,
+    });
+  }
 
   const createdUsers = [];
-  for (const userData of usersData) {
+  for (const userData of users) {
     const user = new User(userData);
     await user.save();
     createdUsers.push(user);
   }
-  console.log(`👥 Users seeded: ${createdUsers.length}`);
 
+  console.log(`👥 Users seeded: ${createdUsers.length}`);
   return createdUsers;
 };
 
 const seedAppointments = async (users) => {
   const students = users.filter((u) => u.role === 'student');
   const teachers = users.filter((u) => u.role === 'teacher');
+  const appointments = [];
 
-  const appointmentsData = [
-    {
-      student: students[0]._id,
-      teacher: teachers[0]._id,
-      date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-      time: '10:00 AM',
-      duration: 60,
-      purpose: 'academic-help',
-      subject: 'Data Structures',
-      message: 'Need help with trees',
-      status: 'confirmed',
-      confirmedAt: new Date(),
-      department: 'Computer Science',
-    },
-    {
-      student: students[1]._id,
-      teacher: teachers[1]._id,
-      date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-      time: '11:00 AM',
-      duration: 60,
-      purpose: 'exam-preparation',
-      subject: 'Calculus',
-      message: 'Midterm prep',
-      status: 'pending',
-      department: 'Mathematics',
-    },
-    {
-      student: students[2]._id,
-      teacher: teachers[2]._id,
-      date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-      time: '2:00 PM',
-      duration: 90,
-      purpose: 'research-guidance',
-      subject: 'Quantum Physics',
-      message: 'Discuss quantum entanglement',
-      status: 'completed',
-      completedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-      confirmedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-      department: 'Physics',
-      studentRating: 5,
-      studentFeedback: 'Excellent guidance!',
-      teacherFeedback: 'Outstanding student.',
-    },
-    {
-      student: students[0]._id,
-      teacher: teachers[1]._id,
-      date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      time: '12:00 PM',
-      duration: 60,
-      purpose: 'career-guidance',
-      subject: 'Calculus',
-      message: 'Discuss career in data science',
-      status: 'cancelled',
-      cancelledAt: new Date(),
-      department: 'Mathematics',
-    },
-  ];
+  const purposes = ['academic-help', 'exam-preparation', 'research-guidance', 'career-guidance'];
+  const statuses = ['confirmed', 'pending', 'cancelled', 'completed'];
 
-  const created = await Appointment.insertMany(appointmentsData);
+  for (let i = 0; i < 50; i++) {
+    const student = students[i % students.length];
+    const teacher = teachers[i % teachers.length];
+    const appointmentDate = new Date();
+    appointmentDate.setDate(appointmentDate.getDate() + (i % 15));
+    const hour = 9 + (i % 8);
+    const timeSlot = `${hour}:00 AM`;
+    const status = statuses[i % statuses.length];
+    const purpose = purposes[i % purposes.length];
+
+    const appointment = {
+      student: student._id,
+      teacher: teacher._id,
+      date: appointmentDate,
+      time: timeSlot,
+      duration: [30, 60, 90][i % 3],
+      purpose,
+      subject: teacher.subject || 'General',
+      message: `Message for appointment #${i + 1}`,
+      status,
+      department: teacher.department,
+    };
+
+    if (status === 'completed') {
+      appointment.completedAt = new Date(appointmentDate.getTime() + 60 * 60 * 1000);
+      appointment.studentRating = 4 + (i % 2);
+      appointment.studentFeedback = 'Great session on topic.';
+      appointment.teacherFeedback = 'Engaged and punctual student.';
+    }
+    if (status === 'cancelled') {
+      appointment.cancelledAt = new Date(appointmentDate.getTime() - 24 * 60 * 60 * 1000);
+    }
+    if (status === 'confirmed') {
+      appointment.confirmedAt = new Date(appointmentDate.getTime() - 12 * 60 * 60 * 1000);
+    }
+
+    appointments.push(appointment);
+  }
+
+  const created = await Appointment.insertMany(appointments);
   console.log(`📅 Appointments seeded: ${created.length}`);
 
   return created;
+};
+
+// Function to update appointmentsCount for all users based on actual appointments
+const updateAppointmentsCount = async (users) => {
+  for (const user of users) {
+    if (user.role === 'student') {
+      const count = await Appointment.countDocuments({ student: user._id });
+      user.appointmentsCount = count;
+      await user.save();
+    }
+    if (user.role === 'teacher') {
+      const count = await Appointment.countDocuments({ teacher: user._id });
+      user.appointmentsCount = count;
+      await user.save();
+    }
+  }
+  console.log('📝 Updated appointmentsCount for all users');
 };
 
 const seedSchedules = async (teachers) => {
@@ -281,10 +252,10 @@ const seedSchedules = async (teachers) => {
   const schedules = [];
 
   for (const teacher of teachers) {
-    for (let day = 0; day < 14; day++) {
+    for (let day = 0; day < 15; day++) {
       const date = new Date();
       date.setDate(date.getDate() + day);
-      if ([0, 6].includes(date.getDay())) continue; // Skip Sunday & Saturday
+      if ([0, 6].includes(date.getDay())) continue;
 
       for (const time of times) {
         schedules.push({
@@ -310,12 +281,20 @@ const seedConversationsAndMessages = async (teachers, students) => {
   const conversations = [];
   const messages = [];
 
-  for (let i = 0; i < 3; i++) {
+  const pairs = new Set();
+
+  for (let i = 0; i < Math.min(teachers.length, students.length, 20); i++) {
     const student = students[i];
     const teacher = teachers[i];
 
+    const participantIds = [student._id.toString(), teacher._id.toString()].sort();
+    const key = participantIds.join('-');
+
+    if (pairs.has(key)) continue;
+    pairs.add(key);
+
     const conversation = await Conversation.create({
-      participants: [student._id, teacher._id],
+      participants: participantIds,
       type: 'direct',
       lastMessageTime: new Date(),
       isActive: true,
@@ -351,7 +330,6 @@ const seedConversationsAndMessages = async (teachers, students) => {
   }
 
   console.log(`💬 Conversations seeded: ${conversations.length}, Messages seeded: ${messages.length}`);
-
   return { conversations, messages };
 };
 
@@ -359,11 +337,12 @@ const seedNotifications = async (teachers, students) => {
   const notifications = [];
 
   for (const student of students) {
+    const teacher = teachers[Math.floor(Math.random() * teachers.length)];
     notifications.push({
       recipient: student._id,
-      sender: teachers[0]._id,
+      sender: teacher._id,
       title: 'Appointment Confirmed',
-      message: `Your appointment with ${teachers[0].name} has been confirmed.`,
+      message: `Your appointment with ${teacher.name} has been confirmed.`,
       type: 'appointment',
       priority: 'high',
       isRead: false,
@@ -386,12 +365,13 @@ const seedDatabase = async () => {
   const departments = await seedDepartments();
   const users = await seedUsers();
 
-  const teachers = users.filter(u => u.role === 'teacher');
-  const students = users.filter(u => u.role === 'student');
+  const teachers = users.filter((u) => u.role === 'teacher');
+  const students = users.filter((u) => u.role === 'student');
 
   await seedAppointments(users);
+  await updateAppointmentsCount(users);
   await seedSchedules(teachers);
-  await seedConversationsAndMessages(teachers,students);
+  await seedConversationsAndMessages(teachers, students);
   await seedNotifications(teachers, students);
 
   console.log('\n✅ Seed Complete');
@@ -400,7 +380,7 @@ const seedDatabase = async () => {
   process.exit(0);
 };
 
-seedDatabase().catch(e => {
+seedDatabase().catch((e) => {
   console.error('Seeding failed:', e);
   process.exit(1);
 });

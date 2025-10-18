@@ -31,7 +31,7 @@ const appointmentSchema = new mongoose.Schema({
   },
   subject: {
     type: String,
-    required: [true, 'Subject is required']
+    required: false
   },
   message: {
     type: String,
@@ -102,7 +102,6 @@ appointmentSchema.pre('save', async function(next) {
       const teacher = await User.findById(this.teacher).select('department subject');
       if (teacher) {
         this.department = teacher.department;
-        this.subject = teacher.subject;
       }
       next();
     } catch (error) {

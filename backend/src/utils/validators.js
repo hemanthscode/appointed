@@ -47,23 +47,22 @@ const validators = {
   },
 
   validateAppointment(appointmentData) {
-    const errors = [];
-    const { teacher, date, time, purpose, subject } = appointmentData;
+   const errors = [];
+  const { teacher, date, time, purpose } = appointmentData;
 
-    if (!teacher) errors.push('Teacher is required');
-    if (!subject) errors.push('Subject is required');
+  if (!teacher) errors.push('Teacher is required');
 
-    if (!date) errors.push('Date is required');
-    else {
-      const apptDate = new Date(date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+  if (!date) errors.push('Date is required');
+  else {
+    const apptDate = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      if (isNaN(apptDate.getTime())) errors.push('Invalid date format');
-      else if (apptDate < today) errors.push('Appointment date cannot be in the past');
-      else if (apptDate > new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)) errors.push('Appointment cannot be more than 30 days in advance');
-    }
-
+    if (isNaN(apptDate.getTime())) errors.push('Invalid date format');
+    else if (apptDate < today) errors.push('Appointment date cannot be in the past');
+    else if (apptDate > new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
+      errors.push('Appointment cannot be more than 30 days in advance');
+  }
     const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM)$/i;
     if (!time) errors.push('Time is required');
     else if (!timeRegex.test(time)) errors.push('Invalid time format (use: 2:00 PM)');

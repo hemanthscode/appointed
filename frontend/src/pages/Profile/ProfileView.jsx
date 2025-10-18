@@ -7,98 +7,195 @@ import Button from '../../components/common/Button';
 import { formatDate } from '../../utils/formatDate';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import { User, Mail, Calendar, Clock, CheckCircle, Star, Phone, MapPin, FileText, BookOpen, MessageSquare, Settings } from 'lucide-react';
+
+const InfoItem = ({ label, value, icon: Icon }) => (
+  <div className="flex gap-3 items-center">
+    <Icon className="w-6 h-6 text-gray-500 flex-shrink-0" aria-hidden="true" />
+    <div className="flex-1 min-w-0">
+      <p className="text-[10px] font-bold text-gray-500 uppercase mb-0.5">{label}</p>
+      <p className="text-sm text-black font-medium truncate">{value || '—'}</p>
+    </div>
+  </div>
+);
+
+const StatCard = ({ label, value, icon: Icon }) => (
+  <div className="bg-gray-50 rounded-xl p-3 flex items-center justify-between">
+    <div>
+      <p className="text-[10px] font-bold text-gray-500 uppercase">{label}</p>
+      <p className="text-sm font-bold text-black mt-0.5 truncate">{value}</p>
+    </div>
+    <Icon className="w-6 h-6 text-gray-600" aria-hidden="true" />
+  </div>
+);
 
 const ProfileView = () => {
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    userService
-      .getProfile()
-      .then(({ data }) => setProfile(data.data))
-      .catch(() => {
-        setError('Failed to load profile');
-        toast.error('Failed to load profile');
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  useEffect(() => {
+    userService.getProfile()
+      .then(({ data }) => setProfile(data.data))
+      .catch(() => toast.error('Failed to load profile'))
+      .finally(() => setLoading(false));
+  }, []);
 
-  if (loading) return <Loader className="mx-auto mt-20" />;
-  if (error) return <p className="text-red-600 text-center mt-10">{error}</p>;
-  if (!profile) return <p className="text-center mt-10">Profile not available.</p>;
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-gray-50">
+      <Loader size="xl" />
+    </div>
+  );
 
-  return (
-    <main className="max-w-lg mx-auto mt-12 p-6 bg-white border border-black rounded shadow-sm text-black">
-      <header className="flex flex-col items-center mb-6">
-        <Avatar
-          src={profile.avatar ? `/uploads/avatars/${profile.avatar}` : null}
-          alt={profile.name}
-          size={96}
-          className="mb-4"
-        />
-        <h1 className="text-4xl font-bold">{profile.name}</h1>
-        <div className="flex space-x-2 mt-2">
-          <Badge color="black">{profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}</Badge>
-          <Badge color={profile.status === 'active' ? 'black' : 'white'}>
-            {profile.status.charAt(0).toUpperCase() + profile.status.slice(1)}
-          </Badge>
-        </div>
-      </header>
-      <section className="space-y-4 text-base">
-        <div>
-          <strong>Email:</strong> <span className="ml-2">{profile.email}</span>
-        </div>
-        <div>
-          <strong>Department:</strong> <span className="ml-2">{profile.department}</span>
-        </div>
-        {profile.year && (
-          <div>
-            <strong>Year:</strong> <span className="ml-2">{profile.year}</span>
-          </div>
-        )}
-        {profile.bio && (
-          <div>
-            <strong>Bio:</strong>
-            <p className="mt-1 whitespace-pre-wrap">{profile.bio}</p>
-          </div>
-        )}
-        {profile.phone && (
-          <div>
-            <strong>Phone:</strong> <span className="ml-2">{profile.phone}</span>
-          </div>
-        )}
-        {profile.address && (
-          <div>
-            <strong>Address:</strong> <span className="ml-2">{profile.address}</span>
-          </div>
-        )}
-        <div>
-          <strong>Appointments:</strong> <span className="ml-2">{profile.appointmentsCount}</span>
-        </div>
-        <div>
-          <strong>Joined:</strong> <span className="ml-2">{formatDate(profile.joinedDate)}</span>
-        </div>
-        <div>
-          <strong>Last Login:</strong>{' '}
-          <span className="ml-2">{formatDate(profile.lastLogin, 'PPpp')}</span>
-        </div>
-      </section>
-      <footer className="mt-8 flex justify-center space-x-4">
-        <Button onClick={() => navigate('/profile/edit')} ariaLabel="Edit Profile" className="min-w-[120px]">
-          Edit Profile
-        </Button>
-        <Button
-          onClick={() => navigate('/profile/change-password')}
-          ariaLabel="Change Password"
-          className="bg-white text-black border border-black hover:bg-black hover:text-white transition min-w-[140px]"
-        >
-          Change Password
-        </Button>
-      </footer>
-    </main>
-  );
+  if (!profile) return (
+    <div className="h-screen flex items-center justify-center bg-gray-50">
+      <p className="text-gray-600 select-none">Profile not available</p>
+    </div>
+  );
+
+  return (
+    <main className="h-screen bg-gray-50 p-4 md:p-8 flex flex-col select-none max-w-7xl mx-auto">
+      {/* Hero Section */}
+      <section className="bg-white border-2 border-black rounded-3xl p-6 md:p-8 flex items-center gap-8 max-w-full">
+        <Avatar
+          src={profile.avatar ? `/uploads/avatars/${profile.avatar}` : null}
+          alt={profile.name}
+          size={112}
+          className="border-4 border-black shadow-lg flex-shrink-0"
+          showBorder
+        />
+        <div className="flex flex-col justify-center min-w-0 max-w-xl">
+          <h1
+            className="text-4xl font-extrabold text-black truncate"
+            title={profile.name}
+          >
+            {profile.name}
+          </h1>
+          <p
+            className="text-gray-600 text-base truncate max-w-full"
+            title={profile.email}
+          >
+            {profile.email}
+          </p>
+          <div className="flex flex-wrap gap-3 mt-4">
+            <Badge variant="primary">{profile.role.toUpperCase()}</Badge>
+            <Badge variant={profile.status === 'active' ? 'success' : 'secondary'}>
+              {profile.status.toUpperCase()}
+            </Badge>
+            {profile.isVerified && (
+              <Badge variant="info" aria-label="Verified">VERIFIED</Badge>
+            )}
+          </div>
+        </div>
+        <div className="ml-auto flex flex-col gap-3">
+          <Button
+            onClick={() => navigate('/profile/edit')}
+            size="md"
+            aria-label="Edit Profile"
+          >
+            Edit Profile
+          </Button>
+          <Button
+            onClick={() => navigate('/profile/change-password')}
+            variant="outline"
+            size="md"
+            aria-label="Change Password"
+          >
+            Change Password
+          </Button>
+        </div>
+      </section>
+
+      {/* Details Section - Grid Layout */}
+      <section className="mt-8 grid grid-cols-12 gap-8 flex-1 overflow-visible">
+
+        {/* Main Content: Bio, Academic, Contact */}
+        <div className="col-span-8 flex flex-col gap-6">
+
+          {/* Bio */}
+          {profile.bio && (
+            <article className="bg-white border-2 border-black rounded-2xl p-6 max-h-[12rem] overflow-auto">
+              <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
+                <FileText className="w-5 h-5" aria-hidden="true" /> About
+              </h2>
+              <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+                {profile.bio}
+              </p>
+            </article>
+          )}
+
+          {/* Academic */}
+          <article className="bg-white border-2 border-black rounded-2xl p-6">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <BookOpen className="w-5 h-5" aria-hidden="true" /> Academic
+            </h2>
+            <div className="grid grid-cols-2 gap-6">
+              <InfoItem label="Department" value={profile.department} icon={Calendar} />
+              {profile.year && <InfoItem label="Year" value={profile.year} icon={BookOpen} />}
+              <InfoItem label="Appointments" value={profile.appointmentsCount} icon={Calendar} />
+              {profile.rating > 0 && (
+                <InfoItem label="Rating" value={`${profile.rating.toFixed(1)} ⭐`} icon={Star} />
+              )}
+            </div>
+          </article>
+
+          {/* Contact */}
+          <article className="bg-white border-2 border-black rounded-2xl p-6">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <Phone className="w-5 h-5" aria-hidden="true" /> Contact
+            </h2>
+            <div className="grid grid-cols-2 gap-6">
+              <InfoItem label="Email" value={profile.email} icon={Mail} />
+              {profile.phone && <InfoItem label="Phone" value={profile.phone} icon={Phone} />}
+              {profile.address && (
+                <div className="col-span-2">
+                  <InfoItem label="Address" value={profile.address} icon={MapPin} />
+                </div>
+              )}
+            </div>
+          </article>
+        </div>
+
+        {/* Sidebar with Activity and Quick Actions */}
+        <aside className="col-span-4 flex flex-col gap-6 max-h-[42rem] overflow-visible border-2 border-black rounded-2xl p-6 bg-white">
+
+          <article>
+            <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
+              <Calendar className="w-5 h-5" aria-hidden="true" /> Activity
+            </h2>
+            <div className="flex flex-col gap-4">
+              <StatCard label="Joined" value={formatDate(profile.joinedDate)} icon={Calendar} />
+              <StatCard label="Last Login" value={formatDate(profile.lastLogin, 'PPpp')} icon={Clock} />
+              <StatCard
+                label="Status"
+                value={profile.status === 'active' ? '🟢 Active' : '🔴 Inactive'}
+                icon={CheckCircle}
+              />
+            </div>
+          </article>
+
+          <article>
+            <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
+              <Settings className="w-5 h-5" aria-hidden="true" /> Quick Actions
+            </h2>
+            <div className="flex flex-col gap-3">
+              <Button variant="outline" fullWidth onClick={() => navigate('/appointments')} aria-label="Go to Appointments">
+                <Calendar className="inline w-4 h-4 mr-2" /> Appointments
+              </Button>
+              <Button variant="outline" fullWidth onClick={() => navigate('/messages')} aria-label="Go to Messages">
+                <MessageSquare className="inline w-4 h-4 mr-2" /> Messages
+              </Button>
+              <Button variant="outline" fullWidth onClick={() => navigate('/settings')} aria-label="Go to Settings">
+                <Settings className="inline w-4 h-4 mr-2" /> Settings
+              </Button>
+            </div>
+          </article>
+
+        </aside>
+      </section>
+    </main>
+  );
 };
 
 export default ProfileView;
+  
